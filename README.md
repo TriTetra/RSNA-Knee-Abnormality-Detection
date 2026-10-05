@@ -66,49 +66,66 @@ $$\text{Final Score} = \frac{1}{12} \sum_{k=1}^{12} \text{AUC}_k$$
 
 ---
 
-## 📂 5. Veri Seti Yapısı ve Dosyalar (Dataset Anatomy)
-
-Veri seti uluslararası, çok merkezli ve farklı MR cihazlarından toplanmıştır:
+## 📂 5. Proje ve Dizin Yapısı (Project Architecture)
 
 ```text
 rsna-knee-abnormality-detection/
-├── .env                       # Kaggle API anahtarı
-├── config.py                  # Kimlik doğrulama script'i
-├── kaggle_cli.py              # Kaggle CLI köprüsü
-├── data/
-│   ├── train.csv              # 4,407 vaka: [StudyInstanceUID, Report, 12 Target Labels]
-│   ├── train_series.csv       # Her StudyInstanceUID için mevcut MR serileri ve düzlemleri
-│   ├── test.csv               # Test seti inceleme kimlikleri (Gizli test setine submission ile evaluate edilir)
-│   ├── test_series.csv        # Test seti serileri
-│   └── sample_submission.csv  # 12 etiket sütunlu örnek format
-├── eda.py                     # İstatistik ve veri inceleme aracı
-├── baseline.py                # İlk çalışan model & submission üretici
-├── submission.csv             # Oluşturulan tahmin dosyası
-└── README.md                  # Bu ana doküman
+├── .env                       # Kaggle API anahtarı (git-ignored)
+├── .env.example               # Örnek API şablonu
+├── requirements.txt           # Bağımlılıklar
+├── README.md                  # Ana dokümantasyon
+│
+├── src/                       # Çekirdek Python modülleri ve pipeline'lar
+│   ├── __init__.py
+│   ├── config.py              # Merkezi path ve ortam yapılandırması
+│   ├── data/                  # DICOM okuyucu, Dataset, DataLoader, 2.5D pencereler
+│   │   └── __init__.py
+│   └── models/                # CoAtNet, DINOv2, Attention Pooling mimarileri
+│       └── __init__.py
+│
+├── notebooks/                 # İnteraktif Jupyter Notebook'lar
+│   └── 01_exploratory_data_analysis.ipynb
+│
+├── scripts/                   # CLI çalıştırılabilir yardımcı scriptler
+│   ├── eda.py                 # Hızlı terminal EDA
+│   ├── baseline.py            # Hızlı baseline koşucu
+│   └── kaggle_cli.py          # Kaggle CLI köprüsü
+│
+├── experiments/               # Deney logları, OOF tahminleri ve model çıktıları
+│   ├── .gitkeep
+│   └── baseline_submission.csv
+│
+└── data/                      # Kaggle'dan indirilen yarışma verileri (git-ignored)
+    ├── train.csv              # 4,407 vaka: [StudyInstanceUID, Report, 12 Target Labels]
+    ├── train_series.csv       # Her StudyInstanceUID için mevcut MR serileri ve düzlemleri
+    ├── test.csv               # Test seti inceleme kimlikleri
+    ├── test_series.csv        # Test seti serileri
+    └── sample_submission.csv  # 12 etiket sütunlu örnek format
 ```
-
-### Önemli Noktalar:
-1. **Multimodal Raporlar (`Report`):** Eğitim setindeki vakaların radyoloji raporları mevcuttur (İspanyolca/Çok dilli). NLP modelleri (ClinicalBERT, RoBERTa vb.) bu raporları işlemek için doğrudan kullanılabilir.
-2. **Görüntüleme Serileri (`.dcm`):** Her vaka için Sagittal, Koronal ve Aksiyel planlarda T1, T2, PD ve Proton Yoğunluğu Yağ Baskılı (PD-FS) MR sekansları mevcuttur.
 
 ---
 
 ## 🚀 6. Hızlı Başlangıç (Quickstart)
 
-### 1. Ortamı Doğrulama ve Veri İnceleme
+### 1. Terminalden Hızlı EDA
 ```bash
-python eda.py
+python scripts/eda.py
 ```
 
-### 2. Baseline Modelini Çalıştırma ve Tahmin Üretme
+### 2. Jupyter ile Kapsamlı Öğretici EDA
 ```bash
-python baseline.py
+jupyter notebook notebooks/01_exploratory_data_analysis.ipynb
 ```
-Bu komut, eğitim etiketlerinin frekans dağılımını kullanarak standart formata uygun `submission.csv` üretir.
 
-### 3. Kaggle'a Gönderim (Submission)
+### 3. Baseline Modelini Çalıştırma ve Tahmin Üretme
 ```bash
-python kaggle_cli.py competitions submit -c rsna-knee-abnormality-detection -f submission.csv -m "Baseline frequency submission"
+python scripts/baseline.py
+# Çıktı: experiments/baseline_submission.csv
+```
+
+### 4. Kaggle'a Gönderim (Submission)
+```bash
+python scripts/kaggle_cli.py competitions submit -c rsna-knee-abnormality-detection -f experiments/baseline_submission.csv -m "Baseline frequency submission"
 ```
 
 ---

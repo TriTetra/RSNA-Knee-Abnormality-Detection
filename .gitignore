@@ -8,4 +8,9 @@ __pycache__/
 data/
 *.dcm
 *.zip
-submission.csv
+*.pt
+*.pth
+experiments/*.csv
+experiments/*.pt
+experiments/*.pth
+!experiments/.gitkeep
