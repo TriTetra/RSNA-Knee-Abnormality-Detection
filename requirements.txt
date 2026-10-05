@@ -1,5 +1,27 @@
+# Kaggle & Environment
 kaggle
 python-dotenv
-pandas
+
+# Data & Numerical Processing
 numpy
+pandas
+scipy
+scikit-learn
+
+# Visualization & EDA
+matplotlib
+seaborn
+tqdm
+
+# Medical Imaging & Computer Vision
 pydicom
+pillow
+timm
+
+# Deep Learning Framework
+torch
+torchvision
+
+# Jupyter Notebook Support
+ipykernel
+jupyter
