@@ -22,8 +22,8 @@ from src.config import DATA_DIR, TARGET_COLS
 PLANE_MAP = {"Sagittal": 0, "Coronal": 1, "Axial": 2}
 
 
-def load_dicom_array(dcm_path: Union[str, Path]) -> np.ndarray:
-    """Read a DICOM file and return a normalized 2D numpy array [0, 1]."""
+def load_dicom_array(dcm_path: Union[str, Path], target_size: int = 384) -> np.ndarray:
+    """Read a DICOM file and return a normalized 2D numpy array [0, 1] resized to target_size."""
     if pydicom is None:
         raise ImportError("pydicom is required to read DICOM files. Install with 'pip install pydicom'.")
 
@@ -47,6 +47,14 @@ def load_dicom_array(dcm_path: Union[str, Path]) -> np.ndarray:
         pixel_array = (pixel_array - p_low) / (p_high - p_low)
     else:
         pixel_array = np.zeros_like(pixel_array)
+
+    # Standardize spatial resolution (H, W) -> (target_size, target_size)
+    if pixel_array.shape != (target_size, target_size):
+        t = torch.from_numpy(pixel_array).unsqueeze(0).unsqueeze(0)
+        t = torch.nn.functional.interpolate(
+            t, size=(target_size, target_size), mode="bilinear", align_corners=False
+        )
+        pixel_array = t.squeeze().numpy()
 
     return pixel_array.astype(np.float32)
 
