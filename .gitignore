@@ -5,7 +5,7 @@ venv/
 .venv/
 __pycache__/
 *.pyc
-data/
+/data/
 *.dcm
 *.zip
 *.pt
