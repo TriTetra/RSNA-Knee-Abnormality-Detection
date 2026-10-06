@@ -13,4 +13,9 @@ __pycache__/
 experiments/*.csv
 experiments/*.pt
 experiments/*.pth
+experiments/checkpoints/
+experiments/logs/
+experiments/oof/
+*.csv
+!data/*.csv
 !experiments/.gitkeep
