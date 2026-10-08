@@ -40,8 +40,9 @@ def load_dicom_array(dcm_path: Union[str, Path], target_size: int = 384) -> np.n
     if getattr(dcm, "PhotometricInterpretation", "") == "MONOCHROME1":
         pixel_array = np.amax(pixel_array) - pixel_array
 
-    # Robust min-max intensity normalization (1st to 99th percentile)
-    p_low, p_high = np.percentile(pixel_array, (1, 99))
+    # Robust min-max intensity normalization (1st to 99th percentile with subsampling for speed)
+    sub = pixel_array[::4, ::4] if pixel_array.shape[0] >= 64 and pixel_array.shape[1] >= 64 else pixel_array
+    p_low, p_high = np.percentile(sub, (1, 99))
     if p_high > p_low:
         pixel_array = np.clip(pixel_array, p_low, p_high)
         pixel_array = (pixel_array - p_low) / (p_high - p_low)
@@ -141,8 +142,15 @@ class KneeStudyDataset(Dataset):
                     start_idx = int(n_files * 0.10)
                     end_idx = max(start_idx + 3, int(n_files * 0.90))
                     core_files = dcm_files[start_idx:end_idx]
+                    # Select at most 12 slices per series to avoid disk I/O bottlenecks
+                    max_slices_per_series = 12
+                    if len(core_files) > max_slices_per_series:
+                        sub_indices = np.linspace(0, len(core_files) - 1, max_slices_per_series, dtype=int)
+                        selected_files = [core_files[i] for i in sub_indices]
+                    else:
+                        selected_files = core_files
 
-                    for dpath in core_files:
+                    for dpath in selected_files:
                         try:
                             s = load_dicom_array(dpath)
                             slices.append(s)
