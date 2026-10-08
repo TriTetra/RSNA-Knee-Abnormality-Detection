@@ -47,10 +47,11 @@ def compute_macro_roc_auc(y_true: np.ndarray, y_pred: np.ndarray) -> Tuple[float
     for idx, col in enumerate(TARGET_COLS):
         yt = y_true[:, idx]
         yp = y_pred[:, idx]
-        # Only compute AUC if both positive and negative samples are present
-        if len(np.unique(yt)) > 1:
+        # Binarize continuous pseudo-labels at 0.5 threshold for official competition ROC-AUC
+        yt_bin = (yt > 0.5).astype(int)
+        if len(np.unique(yt_bin)) > 1:
             try:
-                score = float(roc_auc_score(yt, yp))
+                score = float(roc_auc_score(yt_bin, yp))
                 class_aucs[col] = score
                 valid_aucs.append(score)
             except Exception:
