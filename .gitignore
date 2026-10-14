@@ -19,3 +19,11 @@ experiments/oof/
 *.csv
 !data/*.csv
 !experiments/.gitkeep
+experiments/cache/
+experiments/smoke_cache/
+experiments/dryrun_cache/
+experiments/*.ipynb
+experiments/model_out/
+build/
+*.npz
+third_party/wheels/
