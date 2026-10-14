@@ -1,140 +1,103 @@
-# 🏥 RSNA Knee Abnormality Detection
+# RSNA Knee Abnormality Detection
 
-> **Kaggle Yarışma Bağlantısı:** [kaggle.com/competitions/rsna-knee-abnormality-detection](https://www.kaggle.com/competitions/rsna-knee-abnormality-detection)  
-> **Düzenleyen:** Radiological Society of North America (RSNA)  
-> **Ödül Havuzu:** $77,000 USD  
-> **Kategori:** Research Code Competition  
-> **Bitiş Tarihi:** 22 Ekim 2026  
+> **Yarışma:** [kaggle.com/competitions/rsna-knee-abnormality-detection](https://www.kaggle.com/competitions/rsna-knee-abnormality-detection) · RSNA · $77.000 · Research Code Competition
+> **Son gönderim:** 22 Ekim 2026 · **Takım birleştirme son günü:** 15 Ekim 2026
+> **Kurallar:** günde 5 gönderim, 2 final seçimi, notebook ≤ 9 saat, internet kapalı, public harici veri/model serbest.
 
----
+Her diz MR incelemesi (`StudyInstanceUID`) için 12 bulgunun olasılığı tahmin edilir.
+Metrik: 12 bulgunun ROC AUC'sinin ortalaması (yalnızca **sıralama** önemlidir).
 
-## 📌 1. Yarışmaya Genel Bakış (Overview & Problem Tanımı)
-
-Diz eklemi rahatsızlıkları ve travmaları, kas-iskelet sistemi hastalıkları arasında en yaygın olanlarındandır. Manyetik Rezonans Görüntüleme (MRG / MRI), kemik ve yumuşak doku hasarlarını değerlendirmede altın standarttır. 
-
-**RSNA Knee Abnormality Detection**, katılımcılardan bir dizi çok kesitli ve çok sekanslı diz MR serilerini ve bunlara eşlik eden radyoloji raporlarını kullanarak **12 farklı anormallik/patoloji sınıfını** çalışma (Study) düzeyinde tespit etmelerini beklemektedir.
-
-Bu yarışma, **RSNA tarihindeki ilk multimodal (tıbbi görüntüleme + çok dilli klinik metin raporları) veri kümesini sunan yarışmadır**.
+📘 **Yöntemler, deney sonuçları ve kararlar:** [docs/YONTEMLER.md](docs/YONTEMLER.md) ·
+📝 **Değişiklik günlüğü:** [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
-## 🏆 2. Canlı Liderlik Tablosu (Leaderboard Top 5)
+## 1. Projenin mantığı (tek paragraf)
 
-*Veriler resmi Kaggle API üzerinden canlı olarak çekilmiştir (Ekim 2026).*
+58 vaka dışında etiket yok; etiketler raporlardan türetiliyor (`02`). Test setinde rapor
+olmadığı için model yalnızca görüntüden öğrenmek zorunda. Görüntüyü doğru okumak
+(kesit sırası, yön, mm ölçeği, sağ/sol diz) bu yarışmanın en kritik ve en sessiz
+hata kaynağı (`03`). Her vaka bir kez okunup cache'lenir (`04`), model cache'ten eğitilir
+(`05`), submission notebook'u gizli test setini aynı ön işlemeyle okuyup tahmin eder (`06`).
 
-| Sıra | Takım / Yarışmacı Adı | Skor (ROC AUC) | Son Gönderim Zamanı |
-| :---: | :--- | :---: | :---: |
-| 🥇 **1** | **РазвалиНа** | **0.963** | 2026-10-05 05:36 |
-| 🥈 **2** | **rhoskeri** | **0.963** | 2026-10-04 23:54 |
-| 🥉 **3** | **joinT fusion** | **0.961** | 2026-10-05 09:36 |
-| 🎖️ **4** | **Wassim Dobbi** | **0.961** | 2026-10-04 16:31 |
-| 🎖️ **5** | **🦵YOKKOISHO🦵** | **0.960** | 2026-10-05 03:34 |
-
-> **Not:** Liderlik tablosundaki en yüksek skorlar `0.963` seviyelerinde olup, model füzyonu (görüntü + metin NLP) ve güçlü kros-validasyon stratejilerinin fark yarattığı görülmektedir.
-
----
-
-## 🎯 3. Tahmin Edilecek 12 Hedef Sınıf (Target Classes)
-
-Her bir hasta incelemesi (`StudyInstanceUID`) için aşağıdaki 12 bağımsız patolojinin varlık olasılığı `[0.0, 1.0]` aralığında tahmin edilir:
-
-| # | Hedef Etiket | Türkçe Karşılığı / Açıklama | Eğitim Kümesindeki Pozitiflik Oranı |
-|---|---|---|:---:|
-| 1 | **Effusion** | Eklem içi sıvı toplanması (Efüzyon) | **%60.3** |
-| 2 | **Synovitis** | Sinovyal zar iltihaplanması/kalınlaşması | **%46.6** |
-| 3 | **Medial Meniscus** | İç menisküs yırtığı / dejenerasyonu | **%44.8** |
-| 4 | **ACL** | Ön Çapraz Bağ (Anterior Cruciate Ligament) hasarı/yırtığı | **%41.4** |
-| 5 | **Lateral Meniscus** | Dış menisküs yırtığı | **%39.7** |
-| 6 | **PF OA** | Patellofemoral osteoartrit (Diz kapağı kireçlenmesi) | **%36.2** |
-| 7 | **Contusion** | Kemik iliği ödemi / Kemik kontüzyonu (Kemik ezilmesi) | **%32.8** |
-| 8 | **Fracture** | Kemik kırığı / gizli mikro-kırıklar | **%31.0** |
-| 9 | **Medial OA** | Medial kompartman kireçlenmesi (İç eklem artrozu) | **%25.9** |
-| 10 | **Baker's** | Baker kisti (Popliteal kist) | **%20.7** |
-| 11 | **Lateral OA** | Lateral kompartman kireçlenmesi (Dış eklem artrozu) | **%19.0** |
-| 12 | **MCL** | İç Yan Bağ (Medial Collateral Ligament) zorlanması/yırtığı | **%15.5** |
-
----
-
-## 📐 4. Değerlendirme Metriği (Evaluation Metric)
-
-Yarışma, tahmin edilen olasılık skorları ile gerçek etiketler arasındaki **Makro Ortalama ROC AUC (Macro-Averaged Area Under the ROC Curve)** metriğine göre sıralanır:
-
-$$\text{Final Score} = \frac{1}{12} \sum_{k=1}^{12} \text{AUC}_k$$
-
-* Her hedef etiket için ayrı ayrı ROC AUC hesaplanır ve 12 etiketin aritmetik ortalaması alınır.
-* Bu metrik sınıf dengesizliklerinden (imbalance) doğrudan etkilenmez; modelin pozitif ve negatif örnekleri ne kadar doğru sıraladığına bakar.
-
----
-
-## 📂 5. Proje ve Dizin Yapısı (Project Architecture)
-
-```text
-rsna-knee-abnormality-detection/
-├── .env                       # Kaggle API anahtarı (git-ignored)
-├── .env.example               # Örnek API şablonu
-├── requirements.txt           # Bağımlılıklar
-├── README.md                  # Ana dokümantasyon
-│
-├── src/                       # Çekirdek Python modülleri ve pipeline'lar
-│   ├── __init__.py
-│   ├── config.py              # Merkezi path ve ortam yapılandırması
-│   ├── data/                  # DICOM okuyucu, Dataset, DataLoader, 2.5D pencereler
-│   │   └── __init__.py
-│   └── models/                # CoAtNet, DINOv2, Attention Pooling mimarileri
-│       └── __init__.py
-│
-├── notebooks/                 # İnteraktif Jupyter Notebook'lar
-│   └── 01_exploratory_data_analysis.ipynb
-│
-├── scripts/                   # CLI çalıştırılabilir yardımcı scriptler
-│   ├── eda.py                 # Hızlı terminal EDA
-│   ├── baseline.py            # Hızlı baseline koşucu
-│   └── kaggle_cli.py          # Kaggle CLI köprüsü
-│
-├── experiments/               # Deney logları, OOF tahminleri ve model çıktıları
-│   ├── .gitkeep
-│   └── baseline_submission.csv
-│
-└── data/                      # Kaggle'dan indirilen yarışma verileri (git-ignored)
-    ├── train.csv              # 4,407 vaka: [StudyInstanceUID, Report, 12 Target Labels]
-    ├── train_series.csv       # Her StudyInstanceUID için mevcut MR serileri ve düzlemleri
-    ├── test.csv               # Test seti inceleme kimlikleri
-    ├── test_series.csv        # Test seti serileri
-    └── sample_submission.csv  # 12 etiket sütunlu örnek format
+```
+train.csv (rapor) ──► 02 etiketler ──► train_labels.csv ─┐
+                                                         ├──► 05 eğitim ──► model_fold*.pt ──► 06 submission ──► submission.csv
+DICOM ──► 03 ön işleme (src/dicom.py) ──► 04 cache ──────┘                                        ▲
+                                    └──────────────── aynı fonksiyonlar ───────────────────────────┘
 ```
 
----
+## 2. Notebook'lar (sırayla okuyun)
 
-## 🚀 6. Hızlı Başlangıç (Quickstart)
+| # | notebook | nerede çalışır | ne yapar |
+|---|---|---|---|
+| 01 | `01_exploratory_data_analysis.ipynb` | yerel | veri yapısı, etiket dağılımı, diller, sekanslar |
+| 02 | `02_etiketler.ipynb` | yerel ✅ çalıştırıldı | etiket kaynaklarını 58 altın vakaya karşı ölçer, `data/train_labels.csv` üretir |
+| 03 | `03_dicom_onisleme.ipynb` | yerel ✅ çalıştırıldı | ön işlemenin her adımını gerçek bir vaka üzerinde görsel olarak gösterir |
+| 04 | `04_cache_kaggle.ipynb` | Kaggle CPU | tüm eğitim vakalarını kanonik `.npz` hacimlere çevirir (~12 GB) |
+| 05 | `05_egitim_kaggle.ipynb` | Kaggle GPU | modeli fold bazında eğitir, OOF + checkpoint yazar |
+| 06 | `06_submission_kaggle.ipynb` | Kaggle GPU, internet kapalı | test inference + korumalar + `submission.csv` |
 
-### 1. Terminalden Hızlı EDA
+04–06 yerelde "dry-run" modunda da çalışır (küçük model, tek test vakası) — Kaggle'a
+göndermeden önce kodun uçtan uca çalıştığını doğrulamak için.
+
+## 3. Kod modülleri (`src/`)
+
+Notebook'lar mantığı içermez; hepsi bu modülleri çağırır. Böylece eğitim ve inference
+**aynı** kodu kullanır.
+
+| modül | sorumluluk |
+|---|---|
+| `config.py` | yollar (yerel / Kaggle otomatik), 12 hedef sütun, Kaggle API |
+| `labels.py` | etiket kaynaklarını yükleme, altın vaka denetimi, eğitim etiket tablosu |
+| `dicom.py` | DICOM başlığı, geometrik kesit sıralama, yön standardizasyonu, sağ/sol tespiti, mm'ye göre yeniden örnekleme |
+| `cache.py` | vaka → 6 slot (düzlem × sekans) → `uint8 [slot,16,224,224]` npz; paralel cache üretimi |
+| `dataset.py` | cache'ten 2.5D pencereler, veri artırma, maskeli batch birleştirme |
+| `model.py` | ConvNeXt omurga + slot/konum gömmesi + Transformer bağlamı + 12 başlı dikkat havuzlama |
+| `engine.py` | fold bölme, eğitim/tahmin döngüsü, `pseudo_auc` / `gold_auc` |
+| `inference.py` | test inference (cache'siz), sessiz hata korumaları, rank blend, submission doğrulama |
+
+Yardımcılar: `scripts/kaggle_cli.py` (`.env` token'ı ile Kaggle CLI),
+`scripts/kaggle_push.py` (src dataset'i ve 04/05/06 kernel'lerini **private** gönderir),
+`tests/smoke_test.py` (yerel uçtan uca test).
+
+## 4. Çalıştırma
+
 ```bash
-python scripts/eda.py
+pip install -r requirements.txt
+python tests/smoke_test.py                  # yerel uçtan uca kontrol (data/test_series altında 1 vaka gerekir)
+python scripts/kaggle_push.py src           # src/ + train_labels.csv -> kadirov0/rsna-knee-src (private)
+python scripts/kaggle_push.py kernel 04     # cache (CPU)  -> bitince:
+python scripts/kaggle_push.py kernel 05     # eğitim (GPU) -> bitince:
+python scripts/kaggle_push.py kernel 06     # submission (GPU)
+python scripts/kaggle_push.py status 05
 ```
 
-### 2. Jupyter ile Kapsamlı Öğretici EDA
+Kaggle'a gönderim (kernel versiyonu çalıştıktan sonra):
 ```bash
-jupyter notebook notebooks/01_exploratory_data_analysis.ipynb
+python scripts/kaggle_cli.py competitions submit -c rsna-knee-abnormality-detection -k kadirov0/rsna-knee-06-submission -v <versiyon> -f submission.csv -m "açıklama"
 ```
 
-### 3. Baseline Modelini Çalıştırma ve Tahmin Üretme
-```bash
-python scripts/baseline.py
-# Çıktı: experiments/baseline_submission.csv
-```
+## 5. Eski pipeline'da bulunan ve düzeltilen hatalar
 
-### 4. Kaggle'a Gönderim (Submission)
-```bash
-python scripts/kaggle_cli.py competitions submit -c rsna-knee-abnormality-detection -f experiments/baseline_submission.csv -m "Baseline frequency submission"
-```
+| hata | etkisi | düzeltme |
+|---|---|---|
+| Kesitler dosya adına göre sıralanıyordu (dosya adı = rastgele UID, ρ≈0.1–0.3) | 2.5D pencereler ilgisiz kesitlerdi | `ImagePositionPatient` ile geometrik sıralama |
+| Sağ/sol diz ayrımı yok | medial/lateral 5 hedef öğrenilemiyordu | etiket, yoksa geometri ile taraf; sağ dizler aynalanıyor |
+| Sabit piksele boyutlandırma | görüntülerin fiziksel ölçeği farklıydı | 160 mm sabit FOV |
+| Kernel okuyamayınca sabit önsel yazıyordu | LB **0.500** | okunamayan oran > %2 ise hata; `strict=True` checkpoint |
+| Checkpoint anahtarı uyuşmuyordu (`model_state_dict` ≠ `model`) | yerel inference rastgele ağırlıkla | tek format, `strict=True` |
+| Doğrulama yalnızca LLM etiketine karşı | iyimser/yanlı metrik | `gold_auc` ayrı raporlanıyor |
+| Her epoch DICOM okuma | çok yavaş eğitim | tek seferlik cache |
 
----
+## 6. Strateji ve durum
 
-## 💡 7. İleri Düzey Çözüm Stratejileri (Roadmap)
+Leaderboard (13 Ekim): 1. sıra 0.966, ilk 100 ≈ 0.957, 200–700. sıralar 0.956'da yığılmış
+(public blend notebook'ları). Public en iyi notebook'lar birkaç public ağırlık setinin
+rank-blend'idir.
 
-1. **Text Modeli (NLP Track):**
-   * Rapor metinleri üzerinde multilingual dil modeli (örn. `xlm-roberta-base` veya `Bio_ClinicalBERT`) ile multi-label sınıflandırıcı eğitmek.
-2. **Görüntü Modeli (Vision Track - DICOM):**
-   * 2.5D ve 3D CNN / Vision Transformer (ConvNeXt, EfficientNet-v2, CoAtNet) modelleri ile MR kesitlerini öznitelik vektörlerine dönüştürmek.
-3. **Multimodal Late/Early Fusion:**
-   * Hem görüntü hem rapor özniteliklerini birleştirip (Ensemble / CatBoost / MLP) nihai olasılık tahminlerini harmanlamak.
+1. **Taban:** public 0.956–0.957 blend notebook'unun private kopyası (`kadirov0/rsna-knee-public-blend-heliosli`).
+2. **Kendi modelimiz:** doğru ön işlemeyle eğitilmiş, public modellerden farklı bir model.
+   Tek başına ~0.94 bile olsa düşük korelasyonu sayesinde blend'i yukarı taşıyabilir.
+3. **Blend:** public blend + bizim model, ağırlıklar önceden sabit (public LB'ye uydurulmaz).
+4. **Final:** biri temkinli, biri agresif iki gönderim.
