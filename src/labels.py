@@ -36,7 +36,27 @@ SOURCES_V2 = {
     "jev_hybrid": "HYBRID_labels_scores.csv",
 }
 
+# Etiket v3 (2026-10-15): öğretmen–öğrenci. v2 (rapor) %50 + ConvNeXt 5-fold OOF (görüntü) %50.
+# 58 altın vaka makro AUC 0.9014 -> 0.9223 (bootstrap %90 GA [+0.007, +0.035]).
+# OOF: her vaka, onu eğitimde görmemiş fold modelinden (05 + 05b, etiket v2 ile eğitildi).
+V3_OOF_FILE = "convnext_oof_v2.csv"
+V3_OOF_WEIGHT = 0.5
+
 DEFAULT_SOURCES = SOURCES_V2
+
+
+def build_training_labels_v3(train_csv: Path = DATA_DIR / "train.csv") -> pd.DataFrame:
+    """Etiket v3: v2 kaynaklarının ortalaması ile ConvNeXt OOF tahminlerinin ağırlıklı ortalaması.
+
+    Altın vakalar her zaman radyolog etiketiyle kalır (build_training_labels ile aynı).
+    """
+    v2 = build_training_labels(SOURCES_V2, train_csv=train_csv).set_index("StudyInstanceUID")
+    oof = load_source(V3_OOF_FILE).reindex(v2.index)
+    gold = v2["is_gold"]
+    v3 = v2.copy()
+    mix = (1 - V3_OOF_WEIGHT) * v2[TARGET_COLS] + V3_OOF_WEIGHT * oof[TARGET_COLS].fillna(v2[TARGET_COLS])
+    v3.loc[~gold, TARGET_COLS] = mix.loc[~gold].values
+    return v3.reset_index()
 
 
 def _locate(file_name: str, search_dirs: Optional[List[Path]] = None) -> Optional[Path]:

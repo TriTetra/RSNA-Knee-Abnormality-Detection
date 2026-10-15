@@ -5,6 +5,8 @@
 #   1. bf16 desteklemeyen GPU'larda (T4/P100) fp16 + GradScaler kullanılır.
 #   2. --time_budget_h: Kaggle oturum sınırından önce eğitimi temiz biçimde bitirir.
 #   3. --log_every: epoch içi ilerleme logu.
+#   6. RAPTOR_NPZ_DIR: vaka başına sıkıştırılmış corpus (disk kısıtlı makineler).
+#   5. RAPTOR_INPUT_ROOT ortam değişkeni: Kaggle dışında (Colab vb.) girdi kök klasörü.
 #   4. Çok parçalı corpus (corpus_{vols,masks,ids}_sNN.npy) desteği; _find DICOM ağacına girmez.
 # Model, veri ve kayıt mantığı orijinaldir.
 # =====================================================================================
@@ -110,7 +112,7 @@ RSNA = os.path.dirname(HERE)
 # competition data as a third, so nothing lives beside this script. Everything in
 # this block is discovery only - the training code further down is unchanged.
 # ---------------------------------------------------------------------------
-def _find(*names, root="/kaggle/input"):
+def _find(*names, root=os.environ.get("RAPTOR_INPUT_ROOT", "/kaggle/input")):
     """First path under root whose basename matches one of names."""
     for d, _dirs, fs in os.walk(root):
         _dirs[:] = sorted(x for x in _dirs if x not in ("train_series", "test_series"))  # [KADIROV PATCH] DICOM ağacına girme
@@ -140,7 +142,7 @@ class _TwoPartVols:
         return self.a[row] if row < self.n_a else self.b[row - self.n_a]
 
 
-def _find_shards(prefix, root="/kaggle/input"):
+def _find_shards(prefix, root=os.environ.get("RAPTOR_INPUT_ROOT", "/kaggle/input")):
     """[KADIROV PATCH] corpus_{vols,masks,ids}_sNN.npy parçalarını sırayla bulur."""
     import re as _re
     hits = []
@@ -168,8 +170,28 @@ class _MultiPartVols:
         return self.parts[k][row - self.offsets[k]]
 
 
+class _NpzDirVols:
+    """[KADIROV PATCH] Vaka başına sıkıştırılmış .npz dosyaları (disk kısıtlı makineler için).
+    Klasör: RAPTOR_NPZ_DIR/<satır>.npz (anahtar 'v'), sıra = corpus_ids birleşim sırası."""
+    def __init__(self, d, n, shape):
+        self.d, self.shape = d, (n,) + tuple(shape)
+
+    def __len__(self):
+        return self.shape[0]
+
+    def __getitem__(self, row):
+        with np.load(os.path.join(self.d, f"{row:05d}.npz")) as z:
+            return z["v"]
+
+
 def _open_corpus():
     """Return (vols, masks), from a local single-file corpus or the two public parts."""
+    npz_dir = os.environ.get("RAPTOR_NPZ_DIR")  # [KADIROV PATCH] sıkıştırılmış vaka dosyaları
+    if npz_dir:
+        masks = np.load(os.path.join(npz_dir, "masks.npy"))
+        first = np.load(os.path.join(npz_dir, "00000.npz"))["v"]
+        print(f"[corpus] npz klasörü: {npz_dir} | {masks.shape[0]} vaka | {first.shape}", flush=True)
+        return _NpzDirVols(npz_dir, masks.shape[0], first.shape), masks
     vs = _find_shards("corpus_vols")  # [KADIROV PATCH] kendi çok parçalı corpus'umuz
     if vs:
         ms = _find_shards("corpus_masks")
@@ -193,6 +215,8 @@ def _open_corpus():
 
 
 def _open_ids():
+    if os.environ.get("RAPTOR_NPZ_DIR"):  # [KADIROV PATCH]
+        return np.load(os.path.join(os.environ["RAPTOR_NPZ_DIR"], "ids.npy"), allow_pickle=True).astype(str)
     ids_sh = _find_shards("corpus_ids")  # [KADIROV PATCH]
     if ids_sh:
         return np.concatenate([np.load(p, allow_pickle=True).astype(str) for p in ids_sh])
