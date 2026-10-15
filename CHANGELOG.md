@@ -8,6 +8,27 @@ Kategoriler: **Eklendi** · **Değişti** · **Düzeltildi** · **Kaldırıldı*
 
 ---
 
+## [Yayınlanmadı] — 2026-10-15
+
+### Eklendi
+- `notebooks/11_corpus80_parca{0,1,2}_kaggle.ipynb`: kendi 80 kesitlik Raptor corpus'umuz (3 parça, ~40 GB,
+  0 hata); test anındaki `build_study` ile birebir aynı geometri.
+- `notebooks/12_raptor80_etiket_v2_kaggle.ipynb`, `12b_…_seed7`: Raptor-80 eğitimi (altın 0.9056 / 0.9070,
+  birlikte 0.9097).
+- `notebooks/05b_egitim_fold1-4_kaggle.ipynb` (ConvNeXt kalan fold'lar; 5 fold OOF 0.890),
+  `notebooks/07c_raptor_etiket_v2_seed7_kaggle.ipynb` (44 kesit, altın 0.9053).
+- `notebooks/10r_raptor80_tek_kaggle.ipynb`: yalnızca Raptor-80 ile LB ölçümü.
+- `scripts/kaggle_push.py`: `--token-file` / `--as` ile takım üyesinin hesabından çalıştırma;
+  `KAGGLE_SRC_OWNER`; çapraz hesap kernel kaynakları (`sahip/slug`).
+
+### Değişti
+- `third_party/raptor/train_knee.py`: çok parçalı corpus desteği; dosya araması DICOM ağacına girmez.
+- `notebooks/10_final_blend_kaggle.ipynb`: geometri gruplarına göre Raptor aşamaları (`r44`, `r80`),
+  grup ağırlıkları (`W_GROUPS`), ConvNeXt aşaması (B2), ağırlığı 0 olan aşama çalıştırılmaz.
+
+### Deney
+- Kaggle GPU kotası (kadirov0) doldu; 12/12b/10 takım arkadaşının (miraysudemutlu) hesabında çalıştırıldı.
+
 ## [Yayınlanmadı] — 2026-10-14
 
 ### Eklendi
@@ -59,6 +80,10 @@ Kategoriler: **Eklendi** · **Değişti** · **Düzeltildi** · **Kaldırıldı*
   04 için internet açıldı.
 
 ### Deney
+- **Gönderim:** final v2 (`kadirov0/rsna-knee-10-final-blend` v2) = public 0.80 + Raptor 07+07b 0.20 → **LB 0.953**
+  (public tek başına 0.956). 44 kesitlik Raptor kolları zayıf kaldı; bu ağırlıkla blend'e zarar veriyor.
+- Raptor 07b tamamlandı: altın AUC 0.8965 (07: 0.888). 05b (ConvNeXt fold 1-4) başlatıldı; 07c (seed 7) sırada.
+- Final notebook'a Aşama B2 (ConvNeXt) eklendi; ağırlıklar public 0.75 / Raptor 0.15 / ConvNeXt 0.10.
 - Final notebook 10 testi (public + 07) başarılı: üç aşama hatasız, final blend formülü doğrulandı.
 - Kendi modelimiz 05 (ConvNeXt-Tiny, etiket v2, fold 0) Kaggle'da eğitiliyor.
 - Raptor 07 (etiket v1) tamamlandı: altın AUC 0.888, SWA 0.8883.

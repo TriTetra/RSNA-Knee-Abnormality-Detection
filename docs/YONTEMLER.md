@@ -86,17 +86,18 @@ dosya adına göre (rastgele) sıralıyor, sağ/sol dizi ayırt etmiyordu.
 | 6 | Sağ/sol tespiti (etiket, yoksa merkez x) + aynalama | `src/dicom.py` | [6][5] | etiketle %98.5 uyum | ✅ |
 | 7 | Sabit FOV (mm) yeniden örnekleme, seri düzeyi yoğunluk | `src/dicom.py` | [6] | — | ✅ |
 | 8 | 6 slotlu cache (16 kesit, 224 px, 160 mm) | `src/cache.py`, 04 | kendi | 4.407 vaka, 0 hata, ~12 GB | ✅ |
-| 9 | ConvNeXt-T + slot/konum gömmesi + Transformer + 12 başlı dikkat | `src/model.py`, 05 | [12][13][4] | eğitiliyor | 🔄 |
+| 9 | ConvNeXt-T + slot/konum gömmesi + Transformer + 12 başlı dikkat | `src/model.py`, 05/05b | [12][13][4] | fold 0: pseudo 0.876, altın(12) 0.929 | 🔄 fold 1–4 |
 | 10 | Raptor CoAtNet-384 yeniden eğitimi, etiket v1, norm yok | `third_party/raptor`, 07 | [3] | altın 0.888 (SWA 0.8883) | ✅ final aday |
-| 11 | Raptor, etiket v2 + ImageNet norm | 07b | [3] | ep 5'te 0.8906 | 🔄 |
+| 11 | Raptor, etiket v2 + ImageNet norm | 07b | [3] | altın **0.8965** | ✅ final aday |
 | 12 | Raptor corpus geometrisinin piksel korelasyonuyla doğrulanması | 09 | kendi | span 0.15–0.85, 140 mm → 1.000 | ✅ |
 | 13 | Public blend (Raptor 96 kesit + R7) | public kopya | [2] | LB 0.956 | ✅ taban |
-| 14 | Final: public + bizim modeller, sabit W = 0.20 rank blend | 10 | [2][4] | test başarılı | 🔄 gönderim bekliyor |
+| 14 | Final: public + bizim Raptor (44 kesit), W = 0.20 rank blend | 10 v2 | [2][4] | **LB 0.953** (< 0.956) | ❌ bu ağırlıkla zararlı |
 | 15 | Sessiz geri dönüşe karşı korumalar (strict yükleme, hata oranı, sabit tahmin) | `src/inference.py` | kendi (0.500 dersi) | — | ✅ |
 | 16 | DICOM JPEG çözücüleri (internetsiz wheel) | `src/dicom.py` | [17] | Kaggle imajında gerekmedi | ✅ güvence |
 | 17 | OAI harici veri | — | [5] | forumda +0.005 | ❌ kural riski |
 | 18 | Anatomik ayna TTA | — | [5] | forumda +0.001 | 💡 fikir |
 | 19 | Yardımcı kayıplar / ROI kırpma | — | [12][13] | — | 💡 fikir |
+| 20 | Kendi 80 kesitlik corpus'umuz + Raptor eğitimi (etiket v2), 2 seed | 11, 12, 12b | [3] (geometri tarifi) | altın 0.9056 / 0.9070, birlikte **0.9097** | 🔄 LB ölçümü |
 
 Durum: ✅ kullanılıyor · 🔄 çalışıyor/bekliyor · ⏸ yerine yenisi geldi · ❌ elendi · 💡 denenmedi
 
@@ -265,16 +266,31 @@ rank blend `(1 − W)·public + W·bizim`, W = 0.20 sabit. B hata verir, süreyi
 | 10-14 | **Raptor corpus geometrisi** (09, 12 eğitim vakası, piksel korelasyonu) | slot düzeni maskeden: 12+10+8+6+8; span × kırpma ızgarası | **span 0.15–0.85 + 140 mm → 1.000**; inference varsayılanı 0.06–0.94 → 0.754; 120/160 mm → ≤0.64 | Final notebook (10) bu geometriyi kullanır; yanlış varsayılan sessizce skoru düşürecekti |
 | 10-14 | Public blend puanlama süresi | gizli test (~1.300 vaka) | ~3.3 saat | 9 saatlik sınırda bizim aşamaya ~5 saat pay var |
 | 10-14 | Final notebook 10 test (3 örnek vaka) | public + 07 (SWA), W = 0.20 | A, B, C aşamaları hatasız; bizim model vakalar arası farklı olasılıklar üretti; final = 0.8·rank(public) + 0.2·rank(bizim) elle doğrulandı | B'nin süre bütçesi 2 → 4.5 saat (gizli testte zaman aşımı riskine karşı) |
-| 10-14 | Raptor 07b (Kaggle T4) | CoAtNet-384, **etiket v2**, **ImageNet norm**, 8 epoch | ara sonuç: ep 5'te altın AUC **0.8906** (07 aynı noktada 0.8868) | sürüyor; bitince final notebook'a eklenecek |
+| 10-14 | Raptor 07b (Kaggle T4) | CoAtNet-384, **etiket v2**, **ImageNet norm**, 8 epoch | altın AUC 0.710 → 0.815 → 0.846 → 0.879 → 0.885 → 0.891 → 0.897 → **0.8965** (07: 0.888). Bulgu bazında güçlü: Effusion 0.98, Baker's 0.98, Medial OA 0.96; zayıf: Lateral OA 0.78, Lateral Meniscus 0.81, PF OA 0.82 | v2 etiket + normalizasyon +0.009; final notebook'a eklendi (10 v2) |
+| 10-14 | Final notebook 10 v2 (public + 07 SWA + 07b SWA, W = 0.20) | 3 örnek vakada test | iki Raptor kolu tutarlı tahmin üretti; final değerlerin %83'ü public'ten farklı | **LB 0.953** (public tek başına 0.956) → **daha kötü**. Sebep: 44 kesit/336 px corpus'la eğitilmiş kollar (tahmini LB ~0.92) public'in 96 kesit/384 px modellerinden zayıf; %20 ağırlık ortalamayı aşağı çekti. Puanlama süresi ~9 saat |
+| 10-14 | Kendi modelimiz 05 (ConvNeXt-T, etiket v2, fold 0) | 8 epoch, ~10.5 dk/epoch | pseudo AUC 0.759 → … → **0.876**; altın (n=12) 0.777 → … → 0.929 (ep 7'de 0.935) | 05b (fold 1–4) ile 5 fold tamamlanacak; final notebook Aşama B2 |
+| 10-14 | Raptor kolları birlikte (58 altın) | 07 SWA + 07b, rank ortalaması | 07: 0.8883, 07b: 0.8965, **50/50: 0.8976** (bootstrap fark +0.0013, %90 GA [−0.005, +0.008]); bulgu bazında korelasyon 0.91–0.97 | Aynı reçetenin kopyaları az çeşitlilik katıyor; asıl çeşitlilik ConvNeXt'ten beklenir |
+| 10-14 | ConvNeXt 5 fold OOF (58 altın, gerçek OOF) | 05 + 05b, etiket v2 | **0.890**; Raptor 07b ile korelasyon 0.84 (Raptor kolları arası 0.91–0.97); Raptor+ConvNeXt 50/50 **0.906** | Çeşitlilik var ama mutlak güç (~0.90 altın ≈ ~0.93 LB) blend için yetersiz; final'de ağırlık 0 |
+| 10-14 | 80 kesitlik kendi corpus'umuz (11, 3 CPU kernel) | 22/18/15/10/15 slot, span 0.02–0.98, 140 mm, 336 px | parça 0/1: 1.469'ar vaka, 20–27 dk, **0 hata**; vaka başına 77/80 dolu kesit; slot doluluk sag-T1 %97, kor-T1 %74 (CSV ile tutarlı) | 12 (Raptor-80, etiket v2) eğitimine girdi |
+| 10-14 | Raptor 07c (seed 7, etiket v2, ImageNet norm, 44 kesit) | 8 epoch | altın AUC 0.684 → … → **0.9053** (07b: 0.8965, yazarın modeli ≈0.905) | En iyi 44 kesitlik kol; 44 kesit geometrisi nedeniyle final ağırlığı şimdilik 0 |
+| 10-14 | Kaggle GPU kotası | kadirov0 | **haftalık 30 saat doldu** (cumartesi yenilenir) | 12 (Raptor-80) takım arkadaşının hesabında (`miraysudemutlu`) çalıştırıldı; kaynaklar paylaşımla, src kopyası onun hesabında |
+| 10-15 | **Raptor-80 (12)** — kendi 80 kesitlik corpus'umuz, etiket v2, ImageNet norm | miraysudemutlu hesabı, 8 epoch | altın AUC 0.680 → … → **0.9056** (SWA 0.9041) | — |
+| 10-15 | **Raptor-80 seed 7 (12b)** | 〃 | **0.9070** (SWA 0.9053) | — |
+| 10-15 | 12 + 12b birlikte (58 altın) | rank ortalaması | **0.9097** (bizim en iyi); 12–12b korelasyon 0.95; 12–07b (44 kesit) 0.91 | 58 vaka 44 ↔ 80 kesit farkını göstermiyor → LB'de ölçülecek: 10 (public 0.85 + r80 0.15) ve 10r (yalnızca r80) paralel test |
 
 **Girdi araması:** `/kaggle/input` altında `rglob` kullanmayın; yarışmanın DICOM ağacını dolaşıp
 dakikalar sürer (05'te ~25 dk). `src.config.find_input` / `find_inputs` DICOM klasörlerini atlar.
 
-**Kaggle kısıtı (ölçüldü):** aynı anda en fazla **2 GPU** oturumu ("Maximum batch GPU session
+**Kaggle kısıtı (ölçüldü):** haftalık **30 saat** GPU kotası (dolunca `Maximum weekly GPU quota` hatası; takım üyesinin hesabından `scripts/kaggle_push.py ... --token-file .env.teammate --as KULLANICI` ile çalıştırılabilir); aynı anda en fazla **2 GPU** oturumu ("Maximum batch GPU session
 count of 2"). CPU işleri bu sınıra dahil değil. Çok dosyalı kernel çıktısını indirirken
 `--page-size 200` kullanılmalı, aksi hâlde API 429 (istek limiti) verir.
 
 ## 6. Bulunan hatalar ve dersler
+
+0. **Blend'e eklenen model, blend'in bileşenlerine yakın güçte olmalı.** 0.956'lık blend'e ~0.92
+   seviyesinde bir modeli %20 ağırlıkla eklemek skoru 0.953'e düşürdü. Altın vakadaki 0.89–0.90
+   (bizim) ile public modellerin gücü arasındaki farkı LB'de görmeden ölçmek mümkün değildi;
+   altın 58 vaka bu karşılaştırmayı yapamaz.
 
 1. **Sessiz hatalar en tehlikelisi.** Eski pipeline hiç hata vermeden 0.500 aldı. Artık her
    geri dönüş (fallback) ya hata verir ya da sayılıp yazdırılır.
