@@ -84,7 +84,8 @@ def push_src():
     for f in (ROOT / "data").glob("train_labels*.csv"):  # etiket sürümleri (v1, v2, ...)
         shutil.copy(f, d / f.name)
     # yerel GPU sunucusu için eğitim script'i (LF satır sonlarıyla)
-    (d / "server_raptor80.sh").write_bytes((ROOT / "scripts" / "server_raptor80.sh").read_bytes().replace(bytes([13, 10]), bytes([10])))
+    for sh in ("server_raptor80.sh", "server_queue.sh"):
+        (d / sh).write_bytes((ROOT / "scripts" / sh).read_bytes().replace(bytes([13, 10]), bytes([10])))
     for f in (ROOT / "data").glob("llm_codes_partial*.csv"):  # 08'in kaldığı yerden devamı için
         shutil.copy(f, d / f.name)
     (d / "dataset-metadata.json").write_text(json.dumps({
@@ -142,6 +143,14 @@ KERNELS = {
                  internet=False, kernels=["rsna-knee-11-corpus80-s1"]),
     "14_2": dict(file="14_corpus80_npz_parca2_kaggle.ipynb", slug="rsna-knee-14-corpus80-npz-s2", gpu=False,
                  internet=False, kernels=["rsna-knee-11-corpus80-s2"]),
+    "12v3": dict(file="12v3_raptor80_etiket_v3_kaggle.ipynb", slug="rsna-knee-12v3-raptor80-lbl3", gpu=True,
+                 internet=True, kernels=["rsna-knee-11-corpus80-s0", "rsna-knee-11-corpus80-s1", "rsna-knee-11-corpus80-s2"]),
+    "15_0": dict(file="15_corpus80_tar_parca0_kaggle.ipynb", slug="rsna-knee-15-corpus80-tar-s0", gpu=False,
+                 internet=False, kernels=["rsna-knee-14-corpus80-npz-s0"]),
+    "15_1": dict(file="15_corpus80_tar_parca1_kaggle.ipynb", slug="rsna-knee-15-corpus80-tar-s1", gpu=False,
+                 internet=False, kernels=["rsna-knee-14-corpus80-npz-s1"]),
+    "15_2": dict(file="15_corpus80_tar_parca2_kaggle.ipynb", slug="rsna-knee-15-corpus80-tar-s2", gpu=False,
+                 internet=False, kernels=["rsna-knee-14-corpus80-npz-s2"]),
     "08": dict(file="08_llm_etiketleme_kaggle.ipynb", slug="rsna-knee-08-llm-labels", gpu=True,
                internet=True, kernels=[]),
 }
