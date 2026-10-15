@@ -83,6 +83,10 @@ def push_src():
     shutil.copytree(ROOT / "third_party", d / "third_party", ignore=shutil.ignore_patterns("__pycache__"))
     for f in (ROOT / "data").glob("train_labels*.csv"):  # etiket sürümleri (v1, v2, ...)
         shutil.copy(f, d / f.name)
+    # yerel GPU sunucusu için eğitim script'i (LF satır sonlarıyla)
+    (d / "server_raptor80.sh").write_bytes((ROOT / "scripts" / "server_raptor80.sh").read_bytes().replace(b"
+", b"
+"))
     for f in (ROOT / "data").glob("llm_codes_partial*.csv"):  # 08'in kaldığı yerden devamı için
         shutil.copy(f, d / f.name)
     (d / "dataset-metadata.json").write_text(json.dumps({
