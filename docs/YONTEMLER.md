@@ -81,7 +81,7 @@ dosya adına göre (rastgele) sıralıyor, sağ/sol dizi ayırt etmiyordu.
 | 1 | Rapor etiketlerinin altın vakaya karşı denetimi | `src/labels.py`, 02 | kendi | Kaynaklar 0.87–0.90; fark gürültü bandında | ✅ kullanılıyor |
 | 2 | Etiket v1: steven + pilkwang ortalaması | 02 | [7][8] | 0.8927 | ⏸ yerine v2 |
 | 3 | Etiket v2: steven + Opus 4.5 + JEV ortalaması | 02 | [7][9][10][11] | **0.9014** | ✅ kullanılıyor |
-| 4 | Kendi LLM etiketlemesi (Qwen2.5-7B, P/A/N/U rubrik) | 08 | yöntem [16] (BTK) | 0.797 | ❌ elendi |
+| 4 | Kendi LLM etiketlemesi: Qwen2.5-7B P/A/N/U (0.797); Qwen3.5-27B P/A/N/U (0.828) ve 0–100 puan (0.881) | 08, `scripts/llm_label.py` | yöntem [16] (BTK) | v2'ye katkı yok (0.901 → 0.898) | ❌ elendi |
 | 5 | Geometrik kesit sıralama (IPP · normal) | `src/dicom.py`, 03 | [6] | dosya adı sırası ρ 0.09–0.31 idi | ✅ |
 | 6 | Sağ/sol tespiti (etiket, yoksa merkez x) + aynalama | `src/dicom.py` | [6][5] | etiketle %98.5 uyum | ✅ |
 | 7 | Sabit FOV (mm) yeniden örnekleme, seri düzeyi yoğunluk | `src/dicom.py` | [6] | — | ✅ |
@@ -277,6 +277,11 @@ rank blend `(1 − W)·public + W·bizim`, W = 0.20 sabit. B hata verir, süreyi
 | 10-15 | **Raptor-80 (12)** — kendi 80 kesitlik corpus'umuz, etiket v2, ImageNet norm | miraysudemutlu hesabı, 8 epoch | altın AUC 0.680 → … → **0.9056** (SWA 0.9041) | — |
 | 10-15 | **Raptor-80 seed 7 (12b)** | 〃 | **0.9070** (SWA 0.9053) | — |
 | 10-15 | 12 + 12b birlikte (58 altın) | rank ortalaması | **0.9097** (bizim en iyi); 12–12b korelasyon 0.95; 12–07b (44 kesit) 0.91 | 58 vaka 44 ↔ 80 kesit farkını göstermiyor → LB'de ölçülecek: 10 (public 0.85 + r80 0.15) ve 10r (yalnızca r80) paralel test |
+| 10-15 | Yerel sunucuda LLM etiketleme (RTX 5090, Ollama, qwen3.5:27b Q4) | 58 altın vaka pilotları, `scripts/llm_label.py` | P/A/N/U harf: **0.828**; düşünme modu: 57 dk / 58 rapor, cevapların %67'si kesik → elendi; **0–100 dereceli puan: 0.881** (ACL 0.99, MCL 0.98) | Dereceli puan +0.053 (AUC sıralamaya baktığı için derece önemli). Ama v2'ye eklenince 0.9014 → 0.898 (%25) / 0.895 (%50): **kullanılmıyor**; sunucu GPU'su eğitime ayrılıyor |
+| 10-15 | **Gönderimler** | 10r: yalnızca Raptor-80 (12+12b, etiket v2) · 10a: public 0.85 + r80 0.15 | **10r LB 0.928**, **10a LB 0.955** (public tek başına 0.956) | Altın 0.910 ≈ LB 0.928. ~0.93 seviyesindeki model %15 ağırlıkla bile blend'i düşürüyor; katkı için LB ~0.94+ (altın ~0.925+) gerekli → etiket v3/v4 ile yeniden eğitim |
+| 10-15 | Raptor-80 seed 13 (12c) | miraysudemutlu | eğitiliyor | — |
+| 10-15 | **Etiket v3 (öğretmen–öğrenci, 1. tur)** | v2 rapor etiketleri %50 + ConvNeXt 5-fold OOF %50 | altın **0.9014 → 0.9223**; bootstrap %90 GA [+0.007, +0.035], P(>0)=0.99; en çok Effusion (0.86→0.94), Contusion (0.87→0.93), Fracture (0.84→0.90), Baker's (0.91→0.96) | `train_labels_v3.csv`; 12v3 (Kaggle) ve sunucuda Raptor-80 5 fold bununla eğitiliyor |
+| 10-15 | Yerel sunucu (RTX 5090) | sıkıştırılmış corpus (Kaggle'da npz → tar), Kaggle CLI 2.2.4 (ayrı py3.11 ortamı), dayanıklı indirme | eski CLI sayfalama yapamadı; indirme bağlantı kopması yaşadı → arşiv bazında doğrulama + yeniden deneme | Gece kuyruğu: Raptor-80 v3, 5 fold (OOF → etiket v4) |
 
 **Girdi araması:** `/kaggle/input` altında `rglob` kullanmayın; yarışmanın DICOM ağacını dolaşıp
 dakikalar sürer (05'te ~25 dk). `src.config.find_input` / `find_inputs` DICOM klasörlerini atlar.

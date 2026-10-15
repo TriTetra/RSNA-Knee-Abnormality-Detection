@@ -27,6 +27,11 @@ Kategoriler: **Eklendi** · **Değişti** · **Düzeltildi** · **Kaldırıldı*
   grup ağırlıkları (`W_GROUPS`), ConvNeXt aşaması (B2), ağırlığı 0 olan aşama çalıştırılmaz.
 
 ### Deney
+- **Gönderimler:** 10r (yalnızca Raptor-80 v2) **LB 0.928**; 10a (public 0.85 + Raptor-80 0.15) **LB 0.955**
+  (public tek başına 0.956). ~0.93'lük modeller blend'e katkı yapmıyor.
+- **Etiket v3** (rapor + ConvNeXt OOF): altın 0.9014 → 0.9223. 12v3 (Kaggle) ve yerel sunucuda 5 fold
+  Raptor-80 bununla eğitiliyor.
+- Yerel sunucuda qwen3.5:27b ile etiketleme: 0–100 puan 0.881, v2'ye katkı yok → kullanılmıyor.
 - Kaggle GPU kotası (kadirov0) doldu; 12/12b/10 takım arkadaşının (miraysudemutlu) hesabında çalıştırıldı.
 
 ## [Yayınlanmadı] — 2026-10-14
