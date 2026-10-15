@@ -9,6 +9,9 @@ Kullanım:
     python scripts/kaggle_push.py kernel 08           # LLM ile rapor etiketleme
     python scripts/kaggle_push.py status 04           # kernel durumunu göster
 
+Başka takım üyesinin GPU kotasıyla çalıştırmak (kaynaklar kadirov0'da kalır, paylaşılmış olmalı):
+    python scripts/kaggle_push.py kernel 12 --token-file .env.teammate --as TAKIM_ARKADASI_KULLANICI_ADI
+
 Kernel'ler birbirinin çıktısını `kernel_sources` ile bağlar:
     04 (cache, CPU) -> 05 (eğitim, GPU) -> 06 (submission, GPU, internet kapalı)
 """
@@ -20,6 +23,25 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+
+# Başka bir takım üyesinin hesabıyla çalıştırmak için: --token-file .env.teammate
+# (dosyada KAGGLE_API_TOKEN=...). Kaynaklar (dataset, corpus kernel'leri) varsayılan olarak
+# SOURCE_OWNER hesabından okunur; kernel ise token sahibinin hesabında çalışır.
+import os  # noqa: E402
+if "--token-file" in sys.argv:
+    _i = sys.argv.index("--token-file")
+    for _line in Path(sys.argv[_i + 1]).read_text().splitlines():
+        if _line.strip().startswith("KAGGLE_API_TOKEN="):
+            os.environ["KAGGLE_API_TOKEN"] = _line.split("=", 1)[1].strip()
+    del sys.argv[_i:_i + 2]
+PUSH_AS = None
+if "--as" in sys.argv:  # kernel'in oluşturulacağı hesap (token sahibi)
+    _i = sys.argv.index("--as")
+    PUSH_AS = sys.argv[_i + 1]
+    del sys.argv[_i:_i + 2]
+SOURCE_OWNER = os.environ.get("KAGGLE_SOURCE_OWNER", "kadirov0")      # corpus / model kernel'leri
+SRC_OWNER = os.environ.get("KAGGLE_SRC_OWNER", SOURCE_OWNER)           # rsna-knee-src dataset'i
+
 from src.config import KAGGLE_API_TOKEN, validate_config  # noqa: E402
 
 COMPETITION = "rsna-knee-abnormality-detection"
@@ -27,6 +49,17 @@ BUILD = ROOT / "build" / "kaggle"
 
 
 def user() -> str:
+    """Token sahibinin kullanıcı adı (kernel bu hesapta çalışır)."""
+    if PUSH_AS:
+        return PUSH_AS
+    try:
+        from kaggle.api.kaggle_api_extended import KaggleApi
+        api = KaggleApi(); api.authenticate()
+        name = api.get_config_value("username") or getattr(api, "config_values", {}).get("username")
+        if name:
+            return name
+    except Exception:
+        pass
     out = subprocess.run([sys.executable, "-m", "kaggle", "config", "view"], capture_output=True, text=True)
     for line in out.stdout.splitlines():
         if "username" in line:
@@ -79,8 +112,26 @@ KERNELS = {
     "09": dict(file="09_raptor_geometri_kontrol_kaggle.ipynb", slug="rsna-knee-09-geometry-check", gpu=False,
                internet=False, kernels=[], datasets=["dreaddevelopment/knee-raptor-corpus"]),
     "10": dict(file="10_final_blend_kaggle.ipynb", slug="rsna-knee-10-final-blend", gpu=True,
-               internet=False, kernels=["rsna-knee-07-raptor-retrain"],
+               internet=False, kernels=["miraysudemutlu/rsna-knee-12-raptor80-v2", "miraysudemutlu/rsna-knee-12b-raptor80-v2-s7"],
                datasets=['heliosli/rsna-knee-compact-r7cnxfsss', 'nartaa/rsna-knee-publication-swa-weights-20261007', 'heliosli/rsna-orthofoundation-fold0-epoch7-20261004']),
+    "10r": dict(file="10r_raptor80_tek_kaggle.ipynb", slug="rsna-knee-10r-raptor80-only", gpu=True,
+                internet=False, kernels=["miraysudemutlu/rsna-knee-12-raptor80-v2", "miraysudemutlu/rsna-knee-12b-raptor80-v2-s7"],
+                datasets=['heliosli/rsna-knee-compact-r7cnxfsss', 'nartaa/rsna-knee-publication-swa-weights-20261007', 'heliosli/rsna-orthofoundation-fold0-epoch7-20261004']),
+    "07c": dict(file="07c_raptor_etiket_v2_seed7_kaggle.ipynb", slug="rsna-knee-07c-raptor-v2-seed7", gpu=True,
+                internet=True, kernels=[],
+                datasets=["dreaddevelopment/knee-raptor-corpus", "dreaddevelopment/knee-raptor-corpus-ext"]),
+    "05b": dict(file="05b_egitim_fold1-4_kaggle.ipynb", slug="rsna-knee-05b-train-folds", gpu=True, internet=True,
+                kernels=["rsna-knee-04-cache"]),
+    "11_0": dict(file="11_corpus80_parca0_kaggle.ipynb", slug="rsna-knee-11-corpus80-s0", gpu=False,
+                 internet=False, kernels=[]),
+    "11_1": dict(file="11_corpus80_parca1_kaggle.ipynb", slug="rsna-knee-11-corpus80-s1", gpu=False,
+                 internet=False, kernels=[]),
+    "11_2": dict(file="11_corpus80_parca2_kaggle.ipynb", slug="rsna-knee-11-corpus80-s2", gpu=False,
+                 internet=False, kernels=[]),
+    "12": dict(file="12_raptor80_etiket_v2_kaggle.ipynb", slug="rsna-knee-12-raptor80-v2", gpu=True,
+               internet=True, kernels=["rsna-knee-11-corpus80-s0", "rsna-knee-11-corpus80-s1", "rsna-knee-11-corpus80-s2"]),
+    "12b": dict(file="12b_raptor80_etiket_v2_seed7_kaggle.ipynb", slug="rsna-knee-12b-raptor80-v2-s7", gpu=True,
+                internet=True, kernels=["rsna-knee-11-corpus80-s0", "rsna-knee-11-corpus80-s1", "rsna-knee-11-corpus80-s2"]),
     "08": dict(file="08_llm_etiketleme_kaggle.ipynb", slug="rsna-knee-08-llm-labels", gpu=True,
                internet=True, kernels=[]),
 }
@@ -96,13 +147,15 @@ def push_kernel(key: str):
         "id": f"{u}/{k['slug']}", "title": k["slug"], "code_file": k["file"],
         "language": "python", "kernel_type": "notebook", "is_private": True,
         "enable_gpu": k["gpu"], "enable_internet": k["internet"],
-        "dataset_sources": [f"{u}/rsna-knee-src"] + k.get("datasets", []),
+        "dataset_sources": [f"{SRC_OWNER}/rsna-knee-src"] + k.get("datasets", []),
         "competition_sources": [COMPETITION],
-        "kernel_sources": [f"{u}/{s}" for s in k["kernels"]],
+        # "sahip/slug" biçimindeki kaynaklar olduğu gibi, diğerleri SOURCE_OWNER'dan
+        "kernel_sources": [s if "/" in s else f"{SOURCE_OWNER}/{s}" for s in k["kernels"]],
     }
     if k["gpu"]:
         meta["machine_shape"] = "NvidiaTeslaT4"
     (d / "kernel-metadata.json").write_text(json.dumps(meta, indent=2))
+    print(f"kernel: {u}/{k['slug']} | src: {SRC_OWNER} | kernel kaynakları: {SOURCE_OWNER}")
     kaggle("kernels", "push", "-p", str(d))
 
 
