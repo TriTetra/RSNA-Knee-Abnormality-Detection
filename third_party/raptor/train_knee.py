@@ -5,6 +5,7 @@
 #   1. bf16 desteklemeyen GPU'larda (T4/P100) fp16 + GradScaler kullanılır.
 #   2. --time_budget_h: Kaggle oturum sınırından önce eğitimi temiz biçimde bitirir.
 #   3. --log_every: epoch içi ilerleme logu.
+#   4. Çok parçalı corpus (corpus_{vols,masks,ids}_sNN.npy) desteği; _find DICOM ağacına girmez.
 # Model, veri ve kayıt mantığı orijinaldir.
 # =====================================================================================
 # %% [code]
@@ -111,7 +112,8 @@ RSNA = os.path.dirname(HERE)
 # ---------------------------------------------------------------------------
 def _find(*names, root="/kaggle/input"):
     """First path under root whose basename matches one of names."""
-    for d, _, fs in os.walk(root):
+    for d, _dirs, fs in os.walk(root):
+        _dirs[:] = sorted(x for x in _dirs if x not in ("train_series", "test_series"))  # [KADIROV PATCH] DICOM ağacına girme
         for n in names:
             if n in fs:
                 return os.path.join(d, n)
@@ -138,8 +140,43 @@ class _TwoPartVols:
         return self.a[row] if row < self.n_a else self.b[row - self.n_a]
 
 
+def _find_shards(prefix, root="/kaggle/input"):
+    """[KADIROV PATCH] corpus_{vols,masks,ids}_sNN.npy parçalarını sırayla bulur."""
+    import re as _re
+    hits = []
+    for d, _dirs, fs in os.walk(root):
+        _dirs[:] = sorted(x for x in _dirs if x not in ("train_series", "test_series"))
+        for f in fs:
+            m = _re.fullmatch(prefix + r"_s(\d+)\.npy", f)
+            if m:
+                hits.append((int(m.group(1)), os.path.join(d, f)))
+    return [p for _, p in sorted(hits)]
+
+
+class _MultiPartVols:
+    """[KADIROV PATCH] N parçalı corpus'u tek dizi gibi gösterir (her parça memmap)."""
+    def __init__(self, parts):
+        self.parts = parts
+        self.offsets = np.cumsum([0] + [p.shape[0] for p in parts])
+        self.shape = (int(self.offsets[-1]),) + tuple(parts[0].shape[1:])
+
+    def __len__(self):
+        return self.shape[0]
+
+    def __getitem__(self, row):
+        k = int(np.searchsorted(self.offsets, row, side="right") - 1)
+        return self.parts[k][row - self.offsets[k]]
+
+
 def _open_corpus():
     """Return (vols, masks), from a local single-file corpus or the two public parts."""
+    vs = _find_shards("corpus_vols")  # [KADIROV PATCH] kendi çok parçalı corpus'umuz
+    if vs:
+        ms = _find_shards("corpus_masks")
+        assert len(vs) == len(ms), "vols/masks parça sayısı farklı"
+        print(f"[corpus] {len(vs)} parça: {[os.path.basename(v) for v in vs]}", flush=True)
+        return (_MultiPartVols([np.load(v, mmap_mode="r") for v in vs]),
+                np.concatenate([np.load(m) for m in ms], axis=0))
     local_v = os.path.join(HERE, "all_vols.npy")
     if os.path.exists(local_v):
         return (np.load(local_v, mmap_mode="r"),
@@ -156,6 +193,9 @@ def _open_corpus():
 
 
 def _open_ids():
+    ids_sh = _find_shards("corpus_ids")  # [KADIROV PATCH]
+    if ids_sh:
+        return np.concatenate([np.load(p, allow_pickle=True).astype(str) for p in ids_sh])
     local = os.path.join(HERE, "all_ids.npy")
     if os.path.exists(local):
         return np.load(local, allow_pickle=True).astype(str)
