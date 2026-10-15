@@ -153,6 +153,12 @@ KERNELS = {
                  internet=False, kernels=["rsna-knee-14-corpus80-npz-s1"]),
     "15_2": dict(file="15_corpus80_tar_parca2_kaggle.ipynb", slug="rsna-knee-15-corpus80-tar-s2", gpu=False,
                  internet=False, kernels=["rsna-knee-14-corpus80-npz-s2"]),
+    "16_0": dict(file="16_corpus80_tar30_parca0_kaggle.ipynb", slug="rsna-knee-16-corpus80-tar30-s0", gpu=False,
+                 internet=False, kernels=["rsna-knee-14-corpus80-npz-s0"]),
+    "16_1": dict(file="16_corpus80_tar30_parca1_kaggle.ipynb", slug="rsna-knee-16-corpus80-tar30-s1", gpu=False,
+                 internet=False, kernels=["rsna-knee-14-corpus80-npz-s1"]),
+    "16_2": dict(file="16_corpus80_tar30_parca2_kaggle.ipynb", slug="rsna-knee-16-corpus80-tar30-s2", gpu=False,
+                 internet=False, kernels=["rsna-knee-14-corpus80-npz-s2"]),
     "08": dict(file="08_llm_etiketleme_kaggle.ipynb", slug="rsna-knee-08-llm-labels", gpu=True,
                internet=True, kernels=[]),
 }
