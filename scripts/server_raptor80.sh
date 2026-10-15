@@ -73,12 +73,12 @@ cp "$(find src_ds -name train_knee.py | head -1)" train_knee.py
 RAPTOR_NPZ_DIR="$ROOT/corpus80_npz" RAPTOR_INPUT_ROOT="$ROOT/inputs" python train_knee.py \
   --arch "$ARCH" --res 384 --epochs "$EPOCHS" --bs "$BS" \
   --k 12 --k_eval 24 --grad_ckpt --workers 12 --topk 3 --tag "$TAG" --labels "labels_$TAG.parquet" \
-  --norm imagenet --seed "$SEED" --log_every 100
+  --norm imagenet --seed "$SEED" --log_every 100 ${EXTRA_ARGS:-}
 
 echo "== [4/4] Kaggle'a yükleme (private dataset)"
 DS="$OWNER/rsna-knee-srv-${TAG//_/-}"
 rm -rf "up_$TAG" && mkdir "up_$TAG"
-cp raptor_ft_${TAG}*.pt raptor_ft_${TAG}.json raptor_gold_${TAG}*.npz "up_$TAG"/ 2>/dev/null || true
+cp raptor_ft_${TAG}*.pt raptor_ft_${TAG}.json raptor_gold_${TAG}*.npz raptor_oof_${TAG}*.npz "up_$TAG"/ 2>/dev/null || true
 printf '{"title":"%s","id":"%s","licenses":[{"name":"CC0-1.0"}]}' "${DS#*/}" "$DS" > "up_$TAG/dataset-metadata.json"
 kaggle datasets create -p "up_$TAG"
 rm -rf "up_$TAG"
