@@ -11,7 +11,8 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "notebooks" / "10_final_blend_kaggle.ipynb"
+SRC = ROOT / "notebooks" / "10_final_blend_kaggle.ipynb"          # Aşama B/C hücreleri (8-11) buradan
+BASE = ROOT / "notebooks" / "_public" / "heliosli_blend_mine_0958.ipynb"  # Aşama A: heliosli 0.958 (hücre 0-8, değiştirilmeden)
 
 S101 = {"file": "raptor_ft_kadirov80_lbl3_s101.pt", "fallback": "raptor_ft_kadirov80_lbl3_s101_swa.pt",
         "norm": "imagenet", "w": 1.0}
@@ -20,18 +21,23 @@ FOLDS = [{"file": f"raptor_ft_kadirov80_lbl3_coatnet_f{k}.pt",
           "fallback": f"raptor_ft_kadirov80_lbl3_coatnet_f{k}_swa.pt", "norm": "imagenet", "w": 0.2}
          for k in range(5)]
 
+# Gizli testte her Raptor-80 kolu ~1 saat sürer; Aşama A da uzun olduğu için en fazla 3 kol.
+BEST_FOLDS = [FOLDS[0], FOLDS[1]]   # gold'a göre seçilir (f2-f4 bitince güncellenecek)
+for a in BEST_FOLDS:
+    a["w"] = 0.5
 VARIANTS = {
-    "a": dict(arms=[S101], w=0.15, note="public + 12v3 tek model %15 (etiket v3'ün tek başına katkısı)"),
-    "b": dict(arms=[S101] + FOLDS, w=0.15, note="public + Raptor-80 v3 ensemble (12v3 + 5 fold) %15"),
-    "c": dict(arms=[S101] + FOLDS, w=0.25, note="public + Raptor-80 v3 ensemble %25"),
-    "d": dict(arms=[S101] + FOLDS, w=0.35, note="public + Raptor-80 v3 ensemble %35"),
-    "e": dict(arms=[S101] + FOLDS, w=1.0, note="yalnız Raptor-80 v3 ensemble (teşhis: tek başına LB gücü)"),
+    "a": dict(arms=[S101], w=0.0, note="heliosli 0.958 tabanı, olduğu gibi (güvenli final adayı)"),
+    "b": dict(arms=[S101], w=0.10, note="0.958 + Raptor-80 v3 (12v3) %10"),
+    "c": dict(arms=[S101] + BEST_FOLDS, w=0.15, note="0.958 + Raptor-80 v3 (12v3 + 2 fold) %15"),
+    "d": dict(arms=[S101] + BEST_FOLDS, w=0.25, note="0.958 + Raptor-80 v3 (12v3 + 2 fold) %25"),
 }
 
 
 def make(key: str, v: dict) -> Path:
-    nb = json.loads(SRC.read_text(encoding="utf-8"))
-    cell = nb["cells"][8]
+    ours = json.loads(SRC.read_text(encoding="utf-8"))
+    nb = json.loads(BASE.read_text(encoding="utf-8"))
+    nb["cells"] = nb["cells"][:9] + ours["cells"][8:12]   # A (0.958) + B ayarları + B + B2 + C
+    cell = nb["cells"][9]
     s = "".join(cell["source"])
     a = s.index('"arms": [{"file": "raptor_ft_kadirov80_lbl2.pt"')
     b = s.index("]},", a) + 3
@@ -39,7 +45,10 @@ def make(key: str, v: dict) -> Path:
     s = s.replace('W_GROUPS = {"r80": 0.15, "r44": 0.0}', f'W_GROUPS = {{"r80": {v["w"]}, "r44": 0.0}}')
     assert f'"r80": {v["w"]}' in s and "lbl3" in s
     cell["source"] = s.splitlines(keepends=True)
-    nb["cells"][0]["source"] = [f"# 10s{key} · {v['note']}\n\n"] + nb["cells"][0]["source"]
+    nb["cells"].insert(0, {"cell_type": "markdown", "metadata": {}, "source": [
+        f"# 10s{key} · {v['note']}\n\n",
+        "Aşama A: heliosli'nin public 0.958 notebook'u (hücreler değiştirilmeden, kredileri aşağıda). ",
+        "Aşama B/C: bizim Raptor-80 (etiket v3) modellerimiz ve final rank blend (bkz. notebooks/10).\n"]})
     out = ROOT / "notebooks" / f"10s{key}_blend_kaggle.ipynb"
     out.write_text(json.dumps(nb, ensure_ascii=False, indent=1), encoding="utf-8")
     return out
