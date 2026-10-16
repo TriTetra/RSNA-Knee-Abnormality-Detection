@@ -59,6 +59,26 @@ def build_training_labels_v3(train_csv: Path = DATA_DIR / "train.csv") -> pd.Dat
     return v3.reset_index()
 
 
+V4_OOF_FILES = {"convnext": "convnext_oof_v2.csv", "raptor80": "raptor80_oof_v3.csv"}
+
+
+def build_training_labels_v4(train_csv: Path = DATA_DIR / "train.csv") -> pd.DataFrame:
+    """Etiket v4 (ikinci tur öğretmen-öğrenci): 0.5 · v2 raporları + 0.25 · ConvNeXt OOF + 0.25 · Raptor-80 v3 OOF.
+
+    Raptor-80 OOF'u etiket v3 ile eğitilen 5 fold'dan gelir (scripts/build_labels_v4.py üretir).
+    İki görüntü modeli farklı aileden (r = 0.84) olduğu için ortalamaları tek modelden daha az gürültülüdür.
+    Altın vakalar her zaman radyolog etiketiyle kalır.
+    """
+    v2 = build_training_labels(SOURCES_V2, train_csv=train_csv).set_index("StudyInstanceUID")
+    cnx = load_source(V4_OOF_FILES["convnext"]).reindex(v2.index)[TARGET_COLS].fillna(v2[TARGET_COLS])
+    rap = load_source(V4_OOF_FILES["raptor80"]).reindex(v2.index)[TARGET_COLS].fillna(v2[TARGET_COLS])
+    gold = v2["is_gold"]
+    v4 = v2.copy()
+    mix = 0.5 * v2[TARGET_COLS] + 0.25 * cnx + 0.25 * rap
+    v4.loc[~gold, TARGET_COLS] = mix.loc[~gold].values
+    return v4.reset_index()
+
+
 def _locate(file_name: str, search_dirs: Optional[List[Path]] = None) -> Optional[Path]:
     dirs = search_dirs or [DATA_DIR, DATA_DIR / "external", Path("/kaggle/input")]
     for d in dirs:
