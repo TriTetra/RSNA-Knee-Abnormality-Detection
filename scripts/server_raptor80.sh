@@ -76,10 +76,5 @@ RAPTOR_NPZ_DIR="$ROOT/corpus80_npz" RAPTOR_INPUT_ROOT="$ROOT/inputs" python trai
   --norm imagenet --seed "$SEED" --log_every 100 ${EXTRA_ARGS:-}
 
 echo "== [4/4] Kaggle'a yükleme (private dataset)"
-DS="$OWNER/rsna-knee-srv-${TAG//_/-}"
-rm -rf "up_$TAG" && mkdir "up_$TAG"
-cp raptor_ft_${TAG}*.pt raptor_ft_${TAG}.json raptor_gold_${TAG}*.npz raptor_oof_${TAG}*.npz "up_$TAG"/ 2>/dev/null || true
-printf '{"title":"%s","id":"%s","licenses":[{"name":"CC0-1.0"}]}' "${DS#*/}" "$DS" > "up_$TAG/dataset-metadata.json"
-kaggle datasets create -p "up_$TAG"
-rm -rf "up_$TAG"
-echo "BITTI: $DS"
+# yükleme hatası eğitimi başarısız saymasın (aksi hâlde kuyruk aynı fold'u yeniden eğitir)
+bash ~/rsna/upload_fold.sh "$TAG" || echo "YUKLEME HATASI: bash upload_fold.sh $TAG ile tekrar dene"
