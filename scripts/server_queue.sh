@@ -3,6 +3,7 @@
 # Batch boyutunu boş GPU belleğine göre seçer (>=26 GB: 8, >=20 GB: 6, aksi: 4);
 # çökerse aynı fold'u batch 4 ile en fazla 3 kez dener. Tamamlanan fold'lar done_<TAG> ile atlanır.
 cd ~/rsna
+[ -f venv/bin/activate ] && source venv/bin/activate   # numpy/torch/kaggle buradan gelir
 FOLD_FILE="$(find ~/rsna/src_ds -name folds_v3_5.json | head -1)"
 ARCH=coatnet_rmlp_2_rw_384.sw_in12k_ft_in1k
 free_mb() { nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits | head -1; }
