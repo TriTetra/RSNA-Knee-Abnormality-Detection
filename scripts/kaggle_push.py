@@ -166,6 +166,15 @@ KERNELS = {
                internet=True, kernels=[]),
 }
 
+# Submission varyantları (scripts/make_blend_variants.py üretir); kadirov0 hesabında çalışır
+PUBLIC_DS = ['heliosli/rsna-knee-compact-r7cnxfsss', 'nartaa/rsna-knee-publication-swa-weights-20261007',
+             'heliosli/rsna-orthofoundation-fold0-epoch7-20261004']
+R80V3_DS = ["kadirov0/rsna-knee-r80-lbl3-s101"] + [f"kadirov0/rsna-knee-srv-kadirov80-lbl3-coatnet-f{k}" for k in range(5)]
+VARIANT_KEYS = [f"10s{v}" for v in "abcde"]
+for _k in VARIANT_KEYS:
+    KERNELS[_k] = dict(file=f"{_k}_blend_kaggle.ipynb", slug=f"rsna-knee-{_k}-blend", gpu=True, internet=False,
+                       kernels=[], datasets=PUBLIC_DS + (R80V3_DS[:1] if _k == "10sa" else R80V3_DS))
+
 
 def push_kernel(key: str):
     u, k = user(), KERNELS[key]
