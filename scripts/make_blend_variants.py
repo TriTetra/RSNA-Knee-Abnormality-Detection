@@ -25,11 +25,12 @@ FOLDS = [{"file": f"raptor_ft_kadirov80_lbl3_coatnet_f{k}.pt",
 BEST_FOLDS = [FOLDS[0], FOLDS[1]]   # gold'a göre seçilir (f2-f4 bitince güncellenecek)
 for a in BEST_FOLDS:
     a["w"] = 0.5
+# Gold (58): 12v3 0.9205; 12v3 + f0 + f1 0.9187 (fold'lar 12v3 ile r=0.96, katkı yok) -> submission'larda yalnız 12v3.
 VARIANTS = {
     "a": dict(arms=[S101], w=0.0, note="heliosli 0.958 tabanı, olduğu gibi (güvenli final adayı)"),
     "b": dict(arms=[S101], w=0.10, note="0.958 + Raptor-80 v3 (12v3) %10"),
-    "c": dict(arms=[S101] + BEST_FOLDS, w=0.15, note="0.958 + Raptor-80 v3 (12v3 + 2 fold) %15"),
-    "d": dict(arms=[S101] + BEST_FOLDS, w=0.25, note="0.958 + Raptor-80 v3 (12v3 + 2 fold) %25"),
+    "c": dict(arms=[S101], w=0.20, note="0.958 + Raptor-80 v3 (12v3) %20"),
+    "d": dict(arms=[S101], w=0.30, note="0.958 + Raptor-80 v3 (12v3) %30"),
 }
 
 

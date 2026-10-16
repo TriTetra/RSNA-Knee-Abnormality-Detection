@@ -173,7 +173,7 @@ R80V3_DS = ["kadirov0/rsna-knee-r80-lbl3-s101"] + [f"kadirov0/rsna-knee-srv-kadi
 VARIANT_KEYS = [f"10s{v}" for v in "abcd"]
 for _k in VARIANT_KEYS:
     KERNELS[_k] = dict(file=f"{_k}_blend_kaggle.ipynb", slug=f"rsna-knee-{_k}-blend", gpu=True, internet=False,
-                       kernels=[], datasets=PUBLIC_DS + (R80V3_DS[:1] if _k in ("10sa", "10sb") else R80V3_DS))
+                       kernels=[], datasets=PUBLIC_DS + R80V3_DS[:1])
 
 
 def push_kernel(key: str):
