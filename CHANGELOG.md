@@ -8,6 +8,58 @@ Kategoriler: **Eklendi** · **Değişti** · **Düzeltildi** · **Kaldırıldı*
 
 ---
 
+## [Yayınlanmadı] — 2026-10-20
+
+### Eklendi
+- `docs/RAPOR_12-20_EKIM.md`: 12–20 Ekim arası kronolojik çalışma raporu (yöntemler, sonuçlar, hatalar, zorluklar, kaynaklar).
+- `notebooks/10s{f,g,h}_blend_kaggle.ipynb`: modellerimizin gizli testte tek başına gücünü ölçen varyantlar
+  (12v3 / CoAtNet s303 etiket v4 / 3 CoAtNet v3 seed).
+- `notebooks/10t_heliosli_09586_kaggle.ipynb`: heliosli'nin public 0.9586 tarifi (2. final adayı).
+- `notebooks/17_cikarim_gold_kontrol_kaggle.ipynb`: çıkarım boru hattını 58 altın vakada çalıştırıp eğitimdeki skorla karşılaştırır.
+- `third_party/raptor/infer_knee.py`: `RAPTOR_TEST_ROOT` ile başka bir test kökü (teşhis için).
+
+### Deney
+- 17 numaralı teşhis: 12v3 çıkarımla 0.9227 (eğitimde 0.9205), s505 0.9199 (0.9216) → ön işlemede hata yok.
+- Blend formülü (ikili-normal) 19 Ekim gönderimlerine oturtuldu: modelimizin gizli testte tek başına gücü ~0.939.
+- Gönderildi (puanlanıyor): 10t (Miray), 10sf, 10sg, 10sh.
+
+## [Yayınlanmadı] — 2026-10-19
+
+### Eklendi
+- `notebooks/10s{a..e}_blend_kaggle.ipynb`, `scripts/make_blend_variants.py`: heliosli 0.958 tarifi (Aşama A, değiştirilmeden)
+  + Raptor-80 kollarımız (Aşama B) + rank blend (Aşama C); kol ağırlıkları ve dataset'ler tek yerden.
+- DINOv2 ViT-B (336 px) Raptor-80 modelleri; `server_raptor80.sh` içinde `RES` değişkeni.
+
+### Deney
+- **LB:** 10sa (0.958 tabanı) **0.958** · 10sb (+12v3 %10) 0.956 · 10sc (%20) 0.955 · 10se (+12v3+DINOv2 %20) 0.955 · 10sd (%30) 0.953.
+  Modelimizi eklemek her ağırlıkta zararlı.
+- Sunucu (etiket v3): DINOv2 s202 0.9045 / s303 0.9116; CoAtNet s404 0.9177 / s505 0.9216 (altın).
+
+### Düzeltildi
+- DINOv2 384 px'te çöktü (yama boyutu 14) → 336 px.
+
+## [Yayınlanmadı] — 2026-10-16
+
+### Eklendi
+- `notebooks/_public/heliosli_blend_mine_0958.ipynb`: yeni taban (Raptor 384 + 224 + R6 flip TTA, bulgu bazında ağırlıklar).
+- `src/labels.py → build_training_labels_v4`, `scripts/build_labels_v4.py`: etiket v4 = v2 %50 + ConvNeXt OOF %25 + Raptor-80 OOF %25.
+- `scripts/server_queue2.sh` (2. tur, etiket v4, üç omurga), `scripts/upload_fold.sh` (Kaggle'a yükleme, CLI 2.x).
+- `notebooks/16_corpus80_tar30_parca{0,1,2}_kaggle.ipynb`, `scripts/server_get_tar30.sh`: corpus'un 30'ar küçük arşivle kopmaya dayanıklı indirilmesi.
+
+### Düzeltildi
+- Sunucu kuyruğu venv'i kendisi etkinleştiriyor (gece eğitimi `numpy` bulunamadığı için hiç başlamamıştı).
+- Yükleme hatası eğitimi başarısız saydırmıyor (her fold 3 kez eğitilmişti).
+- Kaggle token'ı `~/.kaggle/access_token` dosyasından okunuyor.
+- Kuyruk, boş GPU belleğine göre batch boyutunu seçiyor ve bellek taşmasında yeniden deniyor.
+
+### Deney
+- Raptor-80 v3, 5 fold (sunucu): f0 0.9121 · f1 0.9084 · f2 0.9041 · f3 0.9078; fold'lar 12v3'e katkı vermiyor (r = 0.96).
+- 2. tur (etiket v4): CoAtNet s202 0.9110 · ConvNeXt-S 0.8950 · CoAtNet s303 0.9186.
+- OAI dış verisi: Login.gov LG22 (coğrafi engel) → kullanılmıyor.
+
+### Bilinen sorunlar
+- Kaggle token'ı sohbete düştü; yenilenmesi gerekiyor.
+
 ## [Yayınlanmadı] — 2026-10-15
 
 ### Eklendi

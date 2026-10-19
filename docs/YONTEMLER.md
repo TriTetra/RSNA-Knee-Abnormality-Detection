@@ -5,7 +5,10 @@ problem nedir, hangi yöntem nerede uygulanıyor ve **nereden alındı**, neler 
 sonuçla, sırada ne var. Değişikliklerin tarih sıralı listesi: [CHANGELOG.md](../CHANGELOG.md).
 Kurulum ve çalıştırma: [README.md](../README.md).
 
-> Son güncelleme: 2026-10-14 · Takım: kadirov0 (+ birleşen takım arkadaşı) · Kaggle sırası: 723 / 5.954 (LB 0.956)
+> Son güncelleme: 2026-10-20 · Takım: kadirov0 + miraysudemutlu · En iyi LB: 0.958 (10sa) · 6.219 takım
+>
+> **15–20 Ekim arasının ayrıntılı anlatımı (kronoloji, hatalar, zorluklar, blend formülü, forum bulguları):
+> [RAPOR_12-20_EKIM.md](RAPOR_12-20_EKIM.md).** Aşağıdaki tablolar 15 Ekim'e kadar ayrıntılıdır.
 
 ---
 
