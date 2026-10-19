@@ -31,6 +31,10 @@ VARIANTS = {
     "b": dict(arms=[S101], w=0.10, note="0.958 + Raptor-80 v3 (12v3) %10"),
     "c": dict(arms=[S101], w=0.20, note="0.958 + Raptor-80 v3 (12v3) %20"),
     "d": dict(arms=[S101], w=0.30, note="0.958 + Raptor-80 v3 (12v3) %30"),
+    # DINOv2 ViT-B (336 px, etiket v3): gold 0.9045, 12v3 ile r=0.949 (farklı aile). Mimari/çözünürlük checkpoint'ten okunur.
+    "e": dict(arms=[dict(S101, w=0.7), {"file": "raptor_ft_kadirov80_lbl3_dinov2_s202.pt",
+               "fallback": "raptor_ft_kadirov80_lbl3_dinov2_s202_swa.pt", "norm": "imagenet", "w": 0.3}],
+              w=0.20, note="0.958 + (12v3 0.7 + DINOv2 0.3) %20"),
 }
 
 
