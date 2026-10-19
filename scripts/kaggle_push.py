@@ -162,6 +162,13 @@ KERNELS = {
                  internet=False, kernels=["rsna-knee-14-corpus80-npz-s1"]),
     "16_2": dict(file="16_corpus80_tar30_parca2_kaggle.ipynb", slug="rsna-knee-16-corpus80-tar30-s2", gpu=False,
                  internet=False, kernels=["rsna-knee-14-corpus80-npz-s2"]),
+    "17": dict(file="17_cikarim_gold_kontrol_kaggle.ipynb", slug="rsna-knee-17-infer-gold-check", gpu=True,
+               internet=False, kernels=[], datasets=["kadirov0/rsna-knee-r80-lbl3-s101",
+                                                     "kadirov0/rsna-knee-srv-kadirov80-lbl3-coatnet-s505"]),
+    "10t": dict(file="10t_heliosli_09586_kaggle.ipynb", slug="rsna-knee-10t-heliosli-09586", gpu=True, internet=False,
+                kernels=["goodpjw2008/rsna-knee-coatnet-r6-2-5d-mil-lb-0-958"],
+                datasets=['goodpjw2008/rsna-knee-2-5d-convnext-reader', 'heliosli/rsna-knee-r6-frozen-fe055406',
+                          'nartaa/rsna-knee-publication-swa-weights-20261007', 'heliosli/rsna-orthofoundation-fold0-epoch7-20261004']),
     "08": dict(file="08_llm_etiketleme_kaggle.ipynb", slug="rsna-knee-08-llm-labels", gpu=True,
                internet=True, kernels=[]),
 }
@@ -170,10 +177,13 @@ KERNELS = {
 PUBLIC_DS = ['heliosli/rsna-knee-r6-frozen-fe055406-w1', 'nartaa/rsna-knee-publication-swa-weights-20261007',
              'heliosli/rsna-orthofoundation-fold0-epoch7-20261004']   # heliosli 0.958 tabanı
 R80V3_DS = ["kadirov0/rsna-knee-r80-lbl3-s101"] + [f"kadirov0/rsna-knee-srv-kadirov80-lbl3-coatnet-f{k}" for k in range(5)]
-VARIANT_KEYS = [f"10s{v}" for v in "abcde"]
+VARIANT_KEYS = [f"10s{v}" for v in "abcdefgh"]
+EXTRA_DS = {"10se": ["kadirov0/rsna-knee-srv-kadirov80-lbl3-dinov2-s202"],
+            "10sg": ["kadirov0/rsna-knee-srv-kadirov80-lbl4-coatnet-s303"],
+            "10sh": ["kadirov0/rsna-knee-srv-kadirov80-lbl3-coatnet-s404", "kadirov0/rsna-knee-srv-kadirov80-lbl3-coatnet-s505"]}
 for _k in VARIANT_KEYS:
     KERNELS[_k] = dict(file=f"{_k}_blend_kaggle.ipynb", slug=f"rsna-knee-{_k}-blend", gpu=True, internet=False,
-                       kernels=[], datasets=PUBLIC_DS + R80V3_DS[:1] + (["kadirov0/rsna-knee-srv-kadirov80-lbl3-dinov2-s202"] if _k == "10se" else []))
+                       kernels=[], datasets=PUBLIC_DS + R80V3_DS[:1] + EXTRA_DS.get(_k, []))
 
 
 def push_kernel(key: str):

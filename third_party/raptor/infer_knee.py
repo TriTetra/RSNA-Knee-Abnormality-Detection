@@ -371,6 +371,9 @@ def build_study(sid, ser_records, tsdir, reader):
 # Test-root discovery + weights + main
 # ============================================================================
 def find_test_root():
+    # [KADIROV PATCH] RAPTOR_TEST_ROOT: teşhis için başka bir kök (ör. altın vakalardan kurulmuş sahte test)
+    if os.environ.get("RAPTOR_TEST_ROOT"):
+        return os.environ["RAPTOR_TEST_ROOT"]
     cands = ["/kaggle/input/competitions/rsna-knee-abnormality-detection",
              "/kaggle/input/rsna-knee-abnormality-detection"]
     for b in cands:

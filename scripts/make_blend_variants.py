@@ -35,6 +35,13 @@ VARIANTS = {
     "e": dict(arms=[dict(S101, w=0.7), {"file": "raptor_ft_kadirov80_lbl3_dinov2_s202.pt",
                "fallback": "raptor_ft_kadirov80_lbl3_dinov2_s202_swa.pt", "norm": "imagenet", "w": 0.3}],
               w=0.20, note="0.958 + (12v3 0.7 + DINOv2 0.3) %20"),
+    # 20 Ekim doğrulama: modellerimizin gizli testteki tek başına gücü (W_PUBLIC = 0).
+    "f": dict(arms=[S101], w=1.0, note="yalnız 12v3 (etiket v3) - pseudo etiket LB'de işe yaradı mı"),
+    "g": dict(arms=[{"file": "raptor_ft_kadirov80_lbl4_coatnet_s303.pt", "fallback": "raptor_ft_kadirov80_lbl4_coatnet_s303_swa.pt",
+                     "norm": "imagenet", "w": 1.0}], w=1.0, note="yalnız CoAtNet s303 (etiket v4) - ikinci etiket turu"),
+    "h": dict(arms=[S101] + [{"file": f"raptor_ft_kadirov80_lbl3_coatnet_s{s}.pt", "fallback": f"raptor_ft_kadirov80_lbl3_coatnet_s{s}_swa.pt",
+                               "norm": "imagenet", "w": 1.0} for s in (404, 505)], w=1.0,
+              note="yalnız 3 CoAtNet v3 seed (s101+s404+s505) - seed ortalaması"),
 }
 
 
@@ -48,7 +55,7 @@ def make(key: str, v: dict) -> Path:
     b = s.index("]},", a) + 3
     s = s[:a] + '"arms": ' + json.dumps(v["arms"], ensure_ascii=False) + "}," + s[b:]
     s = s.replace('W_GROUPS = {"r80": 0.15, "r44": 0.0}', f'W_GROUPS = {{"r80": {v["w"]}, "r44": 0.0}}')
-    assert f'"r80": {v["w"]}' in s and "lbl3" in s
+    assert f'"r80": {v["w"]}' in s and "kadirov80_lbl" in s
     cell["source"] = s.splitlines(keepends=True)
     nb["cells"].insert(0, {"cell_type": "markdown", "metadata": {}, "source": [
         f"# 10s{key} · {v['note']}\n\n",
