@@ -1,7 +1,7 @@
-"""Raptor-80 v3 fold OOF'larını Kaggle'dan toplar ve etiket v4'ü üretir.
+"""Collect the out-of-fold predictions of the five Raptor-80 v3 folds from Kaggle and build labels v4.
 
-Çıktılar: data/external/oof/raptor80_oof_v3.csv, data/train_labels_v4.csv
-Kullanım: python scripts/build_labels_v4.py   (5 fold'un hepsi yüklenmiş olmalı)
+Outputs: data/external/oof/raptor80_oof_v3.csv, data/train_labels_v4.csv
+Usage:   python scripts/build_labels_v4.py   (all five fold datasets must be uploaded)
 """
 import os
 import subprocess
@@ -23,14 +23,15 @@ parts = []
 for k in range(5):
     tag = f"kadirov80_lbl3_coatnet_f{k}"
     f = f"raptor_oof_{tag}_fold{k}.npz"
-    subprocess.run([sys.executable, "-m", "kaggle", "datasets", "download", f"kadirov0/rsna-knee-srv-{tag.replace('_', '-')}",
-                    "-f", f, "-p", str(tmp)], capture_output=True)
+    subprocess.run([sys.executable, "-m", "kaggle", "datasets", "download",
+                    f"kadirov0/rsna-knee-srv-{tag.replace('_', '-')}", "-f", f, "-p", str(tmp)], capture_output=True)
     if not (tmp / f).exists():
-        sys.exit(f"fold {k} OOF bulunamadı ({f}); önce 5 fold'un yüklenmesini bekleyin")
+        sys.exit(f"fold {k} OOF not found ({f}); wait until all five folds are uploaded")
     z = np.load(tmp / f, allow_pickle=True)
-    parts.append(pd.DataFrame(z["pred"], columns=TARGET_COLS, index=pd.Index(z["ids"].astype(str), name="StudyInstanceUID")))
+    parts.append(pd.DataFrame(z["pred"], columns=TARGET_COLS,
+                              index=pd.Index(z["ids"].astype(str), name="StudyInstanceUID")))
 oof = pd.concat(parts)
-assert not oof.index.duplicated().any(), "fold'lar çakışıyor"
+assert not oof.index.duplicated().any(), "folds overlap"
 out = DATA_DIR / "external" / "oof" / "raptor80_oof_v3.csv"
 oof.reset_index().to_csv(out, index=False)
 print("Raptor-80 OOF:", oof.shape, "->", out)
@@ -38,4 +39,4 @@ v4 = build_training_labels_v4()
 v4.to_csv(DATA_DIR / "train_labels_v4.csv", index=False)
 v3 = pd.read_csv(DATA_DIR / "train_labels_v3.csv").set_index("StudyInstanceUID")
 d = (v4.set_index("StudyInstanceUID")[TARGET_COLS] - v3[TARGET_COLS]).abs().mean()
-print("etiket v4:", v4.shape, "| v3'ten ortalama mutlak fark:", d.round(3).to_dict())
+print("labels v4:", v4.shape, "| mean absolute change vs v3:", d.round(3).to_dict())

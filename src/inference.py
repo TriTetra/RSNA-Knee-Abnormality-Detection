@@ -1,8 +1,8 @@
-"""Test inference'ı ve model birleştirme (rank blend).
+"""Test inference and model blending (rank blend).
 
-Eski kernel'in 0.500 almasının sebebi sessiz geri dönüşlerdi: DICOM okunamayınca ya da
-checkpoint yüklenemeyince sabit önsel değerler yazılıyordu. Burada kural basit:
-**okunamayan vaka oranı eşiği aşarsa ya da model yüklenemezse notebook HATA verir.**
+Our first kernel scored 0.500 because of silent fallbacks: when DICOMs could not be read or the checkpoint
+did not load, it wrote constant prior values. The rule here is simple:
+**if the share of unreadable studies exceeds a threshold or a model fails to load, the notebook raises an error.**
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from src.dataset import KneeCacheDataset, collate_studies
 
 
 class OnTheFlyDataset(KneeCacheDataset):
-    """Test vakalarını cache olmadan doğrudan DICOM'dan okur (aynı ön işleme)."""
+    """Read the test studies directly from DICOM without a cache (same preprocessing)."""
 
     def __init__(self, test_df: pd.DataFrame, series_df: pd.DataFrame, data_dir: Path,
                  cache_cfg: CacheConfig, eval_windows_per_slot: int = 14):
@@ -59,9 +59,9 @@ def _collate_with_meta(batch):
 def predict_test(models: Sequence[torch.nn.Module], test_df: pd.DataFrame, series_df: pd.DataFrame,
                  data_dir: Path, cache_cfg: CacheConfig, device, batch_size: int = 2,
                  num_workers: int = 4, max_fail_frac: float = 0.02) -> (pd.DataFrame, pd.DataFrame):
-    """Her model için olasılıkları üretir, fold'ları rank-ortalamasıyla birleştirir.
+    """Predict with every model and merge the folds with a rank mean.
 
-    Dönüş: (tahmin tablosu, vaka meta tablosu). Başarısız oran > max_fail_frac ise hata.
+    Returns (prediction table, study meta table). Raises if the failure rate exceeds max_fail_frac.
     """
     ds = OnTheFlyDataset(test_df, series_df, data_dir, cache_cfg)
     dl = DataLoader(ds, batch_size=batch_size, shuffle=False, num_workers=num_workers,
@@ -81,28 +81,28 @@ def predict_test(models: Sequence[torch.nn.Module], test_df: pd.DataFrame, serie
     meta = pd.DataFrame(metas)
     meta["StudyInstanceUID"] = ids
     n_fail = int((meta["n_slots"].fillna(0) == 0).sum()) if "n_slots" in meta else len(meta)
-    print(f"Okunamayan vaka: {n_fail}/{len(meta)}")
+    print(f"unreadable studies: {n_fail}/{len(meta)}")
     if n_fail > max_fail_frac * len(meta):
-        raise RuntimeError(f"Çok fazla okunamayan vaka ({n_fail}/{len(meta)}). Sabit tahmine "
-                           "düşmek yerine duruyorum; meta tablosundaki 'errors' sütununa bakın.")
+        raise RuntimeError(f"Too many unreadable studies ({n_fail}/{len(meta)}). Stopping instead of "
+                           "falling back to constant predictions; see the 'errors' column of the meta table.")
 
     failed = (meta["n_slots"].fillna(0) == 0).values if "n_slots" in meta else np.ones(len(meta), bool)
     frames = []
     for preds in per_model:
         df = pd.DataFrame(np.concatenate(preds), columns=TARGET_COLS)
-        df.loc[failed, TARGET_COLS] = np.nan  # okunamayan vaka sıralamaya girmez
+        df.loc[failed, TARGET_COLS] = np.nan  # unreadable studies do not enter the ranking
         df.insert(0, "StudyInstanceUID", ids)
         frames.append(df)
     blended = rank_blend(frames)
-    blended[TARGET_COLS] = blended[TARGET_COLS].fillna(0.5)  # nötr orta sıra
+    blended[TARGET_COLS] = blended[TARGET_COLS].fillna(0.5)  # neutral middle rank
     return blended, meta
 
 
 def rank_blend(frames: List[pd.DataFrame], weights: Optional[Sequence[float]] = None) -> pd.DataFrame:
-    """Tahminleri bulgu bazında sıralamaya çevirip ağırlıklı ortalar (0-1 aralığında).
+    """Convert predictions to per-finding ranks and take a weighted mean (in 0-1).
 
-    AUC yalnızca sıralamaya baktığı için olasılık yerine sıra ortalamak, ölçeği farklı
-    modelleri adil biçimde birleştirir.
+    AUC only looks at the order, so averaging ranks instead of probabilities fairly combines models whose
+    outputs live on different scales.
     """
     weights = np.asarray(weights if weights is not None else [1.0] * len(frames), dtype=float)
     weights = weights / weights.sum()
@@ -115,16 +115,16 @@ def rank_blend(frames: List[pd.DataFrame], weights: Optional[Sequence[float]] = 
             ok = ~np.isnan(v)
             if ok.any():
                 r[ok] = rankdata(v[ok]) / ok.sum()
-            acc += w * r  # NaN (okunamayan vaka) NaN olarak kalır
+            acc += w * r  # NaN (unreadable study) stays NaN
         base[c] = acc
     return base
 
 
 def validate_submission(sub: pd.DataFrame, sample: pd.DataFrame) -> None:
-    """Yarışma formatı kontrolleri + sabit tahmin uyarısı."""
-    assert list(sub.columns) == ["StudyInstanceUID"] + TARGET_COLS, "Sütun sırası yanlış"
-    assert set(sub.StudyInstanceUID) == set(sample.StudyInstanceUID), "Vaka kümesi farklı"
+    """Competition format checks + a warning for constant predictions."""
+    assert list(sub.columns) == ["StudyInstanceUID"] + TARGET_COLS, "wrong column order"
+    assert set(sub.StudyInstanceUID) == set(sample.StudyInstanceUID), "different set of studies"
     assert not sub[TARGET_COLS].isna().any().any(), "NaN var"
-    assert ((sub[TARGET_COLS] >= 0) & (sub[TARGET_COLS] <= 1)).all().all(), "0-1 dışı değer"
+    assert ((sub[TARGET_COLS] >= 0) & (sub[TARGET_COLS] <= 1)).all().all(), "value outside 0-1"
     if len(sub) > 1 and (sub[TARGET_COLS].nunique() == 1).all():
-        raise RuntimeError("Tüm vakalara aynı tahmin yazılmış: model çalışmamış olabilir (AUC=0.5).")
+        raise RuntimeError("every study has the same prediction: the model probably did not run (AUC = 0.5)")

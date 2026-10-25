@@ -1,10 +1,11 @@
-"""Eğitim ve değerlendirme döngüleri, fold bölme ve metrikler.
+"""Training and evaluation loops, fold assignment and metrics.
 
-Metrik: 12 bulgunun ROC AUC'sinin ortalaması (yarışma metriği). İki ayrı ölçüm raporlanır:
-* `pseudo_auc`: doğrulama vakalarının rapor-türevi etiketlerine (0.5'te ikiye bölünmüş) göre.
-  Bol örnekli ama hedef LLM etiketi olduğu için iyimser/yanlı olabilir.
-* `gold_auc`: yalnız radyolog etiketli altın vakalarda. Az örnek (fold başına ~12) ama
-  gerçek hedefe en yakın ölçü. Tüm fold'lar bitince 58 vakanın OOF'u ile hesaplanmalı.
+Metric: mean ROC AUC over the 12 findings (the competition metric). Two measurements are reported:
+* `pseudo_auc`: against the report-derived labels of the validation studies (binarised at 0.5).
+  Many samples, but optimistic/biased because the target is an LLM label.
+* `gold_auc`: on the radiologist-labelled gold studies only. Few samples (~12 per fold), closest to the real
+  target; compute it on the 58 out-of-fold predictions once all folds are done.
+  Lesson from this competition: even the 58-study OOF did not predict the leaderboard (see docs/).
 """
 from __future__ import annotations
 
@@ -23,7 +24,7 @@ from src.config import TARGET_COLS
 
 
 def make_folds(labels: pd.DataFrame, n_folds: int = 5, seed: int = 42) -> pd.DataFrame:
-    """Altın vakaları ve pozitif bulgu sayısını dengeleyen fold ataması."""
+    """Fold assignment that balances the gold studies and the number of positive findings."""
     df = labels.copy()
     n_pos = (df[TARGET_COLS] > 0.5).sum(1).clip(0, 6)
     strata = df["is_gold"].astype(int).astype(str) + "_" + n_pos.astype(str)
@@ -83,14 +84,14 @@ def train_one_epoch(model, loader, optimizer, scheduler, scaler, device, gold_we
         total += loss.item() * grad_accum * len(y)
         count += len(y)
         if log_every and (step + 1) % log_every == 0:
-            print(f"    adım {step + 1}/{len(loader)}  kayıp {total / count:.4f}  "
+            print(f"    step {step + 1}/{len(loader)}  loss {total / count:.4f}  "
                   f"lr {scheduler.get_last_lr()[0]:.2e}  {time.time() - t0:.0f}s", flush=True)
     return total / max(count, 1)
 
 
 @torch.no_grad()
 def predict(model, loader, device, amp_dtype=torch.float16) -> pd.DataFrame:
-    """Olasılık tablosu döndürür (StudyInstanceUID + 12 sütun)."""
+    """Return a probability table (StudyInstanceUID + 12 columns)."""
     model.eval()
     ids, preds = [], []
     for batch in loader:

@@ -1,7 +1,7 @@
-"""Yerel uçtan uca duman testi: cache -> dataset -> model eğitimi -> test inference.
+"""Local end-to-end smoke test: cache -> dataset -> model training -> test inference.
 
-Çalıştırma:  python tests/smoke_test.py
-Gereken: data/test_series altında en az bir test vakasının DICOM'ları.
+Run:   python tests/smoke_test.py
+Needs: the DICOMs of at least one test study under data/test_series.
 """
 import shutil
 import sys
@@ -26,7 +26,7 @@ def main():
     ser = pd.read_csv(DATA_DIR / "test_series.csv")
     test = pd.read_csv(DATA_DIR / "test.csv")
     local = [s for s in test.StudyInstanceUID if (DATA_DIR / "test_series" / s).exists()]
-    assert local, "data/test_series altında DICOM yok"
+    assert local, "no DICOM files under data/test_series"
     st = local[0]
     cfg = CacheConfig(n_slices=16, size=128)
 
@@ -51,16 +51,16 @@ def main():
     opt = torch.optim.AdamW(model.parameters(), 1e-4)
     sch = cosine_with_warmup(opt, 1, 4)
     scaler = torch.amp.GradScaler("cuda", enabled=False)
-    print("eğitim kaybı:", train_one_epoch(model, dl, opt, sch, scaler, torch.device("cpu"), log_every=0))
+    print("training loss:", train_one_epoch(model, dl, opt, sch, scaler, torch.device("cpu"), log_every=0))
     ev = DataLoader(KneeCacheDataset(lab, out, train=False), batch_size=2, collate_fn=collate_studies)
     print(predict(model, ev, torch.device("cpu")).iloc[:, :4])
 
-    # Koruma testi: yerelde DICOM'u olmayan test vakaları -> hata vermeli
+    # Guard test: test studies without local DICOMs must raise an error
     try:
         predict_test([model.eval()], test, ser, DATA_DIR, cfg, torch.device("cpu"), num_workers=0)
-        print("UYARI: koruma tetiklenmedi" if len(local) < len(test) else "tüm vakalar okundu")
+        print("UYARI: koruma tetiklenmedi" if len(local) < len(test) else "all studies were read")
     except RuntimeError as e:
-        print("KORUMA ÇALIŞIYOR:", str(e)[:90])
+        print("GUARD WORKS:", str(e)[:90])
     pred, meta = predict_test([model.eval()], test, ser, DATA_DIR, cfg, torch.device("cpu"),
                               num_workers=0, max_fail_frac=1.0)
     print(meta.reindex(columns=["n_slots", "side", "side_source", "errors"]).to_string())

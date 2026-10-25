@@ -1,13 +1,13 @@
-"""Her vakayı bir kez okuyup diske sıkıştırılmış `.npz` olarak yazar (önbellek / cache).
+"""Read every study once and write it to disk as a compressed `.npz` (the cache).
 
-Eğitimin darboğazı GPU değil DICOM okumaktır: bir vaka ~150 dosya. Bunu her epoch'ta
-tekrarlamak yerine bir kez kanonik hacimlere dönüştürüp saklarız.
+The training bottleneck is DICOM reading, not the GPU: one study is ~150 files. Instead of repeating that
+every epoch, studies are converted once to canonical volumes and stored.
 
-Slot (yuva) yapısı: her vaka en fazla 6 seriye indirgenir.
-    0 Sagittal  sıvı-duyarlı (PD/T2 FS)   1 Sagittal  T1 / yağ baskısız
-    2 Coronal   sıvı-duyarlı              3 Coronal   T1
-    4 Axial     sıvı-duyarlı              5 Axial     T1
-Aynı slota birden fazla seri düşerse en çok kesiti olan seçilir.
+Slot layout: every study is reduced to at most 6 series.
+    0 Sagittal  fluid-sensitive (PD/T2 FS)   1 Sagittal  T1 / non fat-suppressed
+    2 Coronal   fluid-sensitive              3 Coronal   T1
+    4 Axial     fluid-sensitive              5 Axial     T1
+If several series fall into one slot, the one with the most slices is used.
 """
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ def find_series_dir(data_dir: Path, split: str, study: str, series: str) -> Opti
 
 
 def assign_slots(study_series: pd.DataFrame, data_dir: Path, split: str) -> Dict[int, Path]:
-    """CSV'deki düzlem + Fluid_Sensitive bilgisine göre her slot için bir seri klasörü seçer."""
+    """Pick one series folder per slot from the plane and Fluid_Sensitive columns of the series CSV."""
     chosen: Dict[int, tuple] = {}
     for _, r in study_series.iterrows():
         key = (r["Anatomical_Plane"], int(r["Fluid_Sensitive"]))
@@ -65,13 +65,13 @@ def assign_slots(study_series: pd.DataFrame, data_dir: Path, split: str) -> Dict
 
 def process_study(study: str, study_series: pd.DataFrame, data_dir: Path, split: str,
                   cfg: CacheConfig) -> Dict:
-    """Bir vakayı işler: {'volumes': uint8[k,S,H,W], 'slots': int[k], 'meta': {...}}."""
+    """Process one study: {'volumes': uint8[k,S,H,W], 'slots': int[k], 'meta': {...}}."""
     slot_dirs = assign_slots(study_series, data_dir, split)
     geoms, errors = {}, []
     for slot, d in slot_dirs.items():
         try:
             geoms[slot] = analyze_series(d)
-        except Exception as e:  # bozuk seri: logla, atla
+        except Exception as e:  # broken series: log and skip
             errors.append(f"{SLOT_NAMES[slot]}:header:{type(e).__name__}")
 
     lat = resolve_laterality(list(geoms.values()))
@@ -117,9 +117,9 @@ def _worker(args):
 def build_cache(series_df: pd.DataFrame, data_dir: Path, split: str, out_dir: Path,
                 cfg: CacheConfig = CacheConfig(), n_workers: int = 4,
                 studies: Optional[List[str]] = None, log_every: int = 200) -> pd.DataFrame:
-    """Tüm vakaları paralel işler, `out_dir/<study>.npz` + `out_dir/meta.csv` yazar.
+    """Process all studies in parallel and write `out_dir/<study>.npz` + `out_dir/meta.csv`.
 
-    Zaten var olan npz dosyaları atlanır; böylece yarıda kalan bir çalışma devam ettirilebilir.
+    Existing npz files are skipped, so an interrupted run can be resumed.
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -138,7 +138,7 @@ def build_cache(series_df: pd.DataFrame, data_dir: Path, split: str, out_dir: Pa
     for i, m in enumerate(results):
         metas.append(m)
         if (i + 1) % log_every == 0:
-            print(f"  {i + 1}/{len(jobs)} vaka işlendi", flush=True)
+            print(f"  {i + 1}/{len(jobs)} studies processed", flush=True)
     if ex is not None:
         ex.shutdown()
 
@@ -152,7 +152,7 @@ def build_cache(series_df: pd.DataFrame, data_dir: Path, split: str, out_dir: Pa
 
 
 def load_cached(cache_dir: Path, study: str):
-    """(volumes uint8[k,S,H,W], slots int[k]) döndürür; dosya yoksa None."""
+    """Return (volumes uint8[k,S,H,W], slots int[k]), or None if the file does not exist."""
     p = Path(cache_dir) / f"{study}.npz"
     if not p.exists():
         return None

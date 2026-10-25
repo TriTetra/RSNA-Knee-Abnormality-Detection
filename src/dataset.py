@@ -1,14 +1,14 @@
-"""Cache'teki hacimlerden model girdisi üreten PyTorch Dataset.
+"""PyTorch Dataset that builds model inputs from the cached volumes.
 
-Bir vaka -> en fazla 6 slot -> her slottan 2.5D pencereler.
-2.5D pencere: ardışık üç kesit [i-1, i, i+1] üç kanal (RGB) gibi verilir; böylece 2D
-bir omurga (ImageNet ön eğitimli) komşu kesit bağlamını da görür.
+One study -> at most 6 slots -> 2.5D windows from every slot.
+A 2.5D window feeds three adjacent slices [i-1, i, i+1] as the three (RGB) channels, so an ImageNet-pretrained
+2D backbone also sees the neighbouring slices.
 
-Eğitimde her slottan rastgele `windows_per_slot` pencere seçilir (veri artırma + hız);
-değerlendirmede tüm pencereler eşit aralıklı alınır.
+Training samples `windows_per_slot` random windows per slot (augmentation + speed);
+evaluation takes evenly spaced windows.
 
-UYARI: Yatay çevirme (horizontal flip) KULLANILMAZ. Sağ dizler zaten sola aynalandı;
-rastgele çevirme medial ile lateral'i karıştırır ve 5 hedefi bozar.
+WARNING: no random horizontal flip. Right knees are already mirrored to the left; a random flip would swap
+medial and lateral and corrupt five of the targets.
 """
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ IMAGENET_STD = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
 
 
 def _random_affine(vol: torch.Tensor, max_rot: float = 10, scale=(0.9, 1.1), shift: float = 0.06):
-    """Bir slotun tüm kesitlerine aynı rastgele dönme/ölçek/kaydırma uygular. vol: [S,H,W]."""
+    """Apply the same random rotation / scale / shift to every slice of a slot. vol: [S,H,W]."""
     a = math.radians(np.random.uniform(-max_rot, max_rot))
     s = np.random.uniform(*scale)
     tx, ty = np.random.uniform(-shift, shift, 2)
@@ -55,7 +55,7 @@ class KneeCacheDataset(Dataset):
         return len(self.df)
 
     def _windows(self, vol: torch.Tensor) -> (torch.Tensor, torch.Tensor):
-        """vol [S,H,W] -> pencereler [k,3,H,W] ve göreli konum [k] (0..1)."""
+        """vol [S,H,W] -> windows [k,3,H,W] and relative position [k] (0..1)."""
         S = vol.shape[0]
         centers = np.arange(1, S - 1)
         if self.train and len(centers) > self.k:
@@ -95,7 +95,7 @@ class KneeCacheDataset(Dataset):
 
 
 def collate_studies(batch: List[Dict]) -> Dict:
-    """Değişken sayıda pencereyi [B, Nmax, 3, H, W] olarak doldurur + maske."""
+    """Pad a variable number of windows to [B, Nmax, 3, H, W] and return a mask."""
     n_max = max(max(len(b["images"]) for b in batch), 1)
     H, W = next((b["images"].shape[-2:] for b in batch if len(b["images"])), (1, 1))
     B = len(batch)
@@ -116,5 +116,5 @@ def collate_studies(batch: List[Dict]) -> Dict:
 
 
 def normalize_imagenet(x: torch.Tensor) -> torch.Tensor:
-    """[N,3,H,W] 0-1 aralığı -> ImageNet normalizasyonu."""
+    """[N,3,H,W] in 0-1 -> ImageNet normalisation."""
     return (x - IMAGENET_MEAN.to(x.device)) / IMAGENET_STD.to(x.device)

@@ -1,18 +1,18 @@
-"""DICOM serisini okuyup kanonik bir hacme (uint8 [n_slices, size, size]) dönüştürür.
+"""Read a DICOM series and turn it into a canonical volume (uint8 [n_slices, size, size]).
 
-Neden gerekli? Bu veri setinde dört tuzak var ve hiçbiri hata vermez, sadece modeli bozar:
+Why this is needed: the data set has four traps, and none of them raises an error; they silently break the model.
 
-1. **Kesit sırası:** Dosya adı SOP Instance UID'dir; alfabetik sıra anatomik sırayla
-   ilgisizdir. Doğru sıra `ImagePositionPatient`'ın kesit normali yönündeki bileşenidir.
-2. **Görüntü yönü:** Farklı cihazlar aynı düzlemi ters/aynalı kaydedebilir. Satır ve sütun
-   yön kosinüslerine (`ImageOrientationPatient`) bakarak hepsini tek bir yöne çeviririz.
-3. **Fiziksel ölçek:** Piksel boyutu (mm) seriden seriye değişir. Sabit piksel sayısına
-   değil sabit bir görüş alanına (FOV, mm) göre yeniden örnekleriz.
-4. **Sağ / sol diz:** Medial/lateral bulgular (menisküsler, OA, MCL) görüntüde dizin
-   tarafına göre yer değiştirir. Sağ dizleri aynalayarak hepsini "sol diz" görünümüne
-   getiririz: koronal/aksiyalde yatay çevirme, sagitalde kesit sırasını ters çevirme.
+1. **Slice order:** the file name is the SOP Instance UID; alphabetical order is unrelated to anatomy.
+   The true order is the component of `ImagePositionPatient` along the slice normal.
+2. **Image orientation:** scanners may store the same plane flipped or mirrored. The row and column
+   direction cosines (`ImageOrientationPatient`) are used to bring every series to one orientation.
+3. **Physical scale:** the pixel size (mm) varies between series, so we resample to a fixed field of view
+   (FOV, mm) rather than a fixed pixel count.
+4. **Right / left knee:** medial and lateral findings (menisci, OA, MCL) swap sides in the image with the knee
+   side. Right knees are mirrored to look like left knees: horizontal flip on coronal/axial,
+   reversed slice order on sagittal.
 
-Hasta koordinat sistemi (LPS): +x hastanın soluna, +y arkaya (posterior), +z başa doğru.
+Patient coordinate system (LPS): +x towards the patient's left, +y posterior, +z towards the head.
 """
 from __future__ import annotations
 
@@ -35,12 +35,11 @@ DECODER_PACKAGES = ["pylibjpeg", "pylibjpeg-libjpeg", "pylibjpeg-openjpeg", "pyt
 
 
 def ensure_decoders(wheel_dirs: Sequence[Path] = ()) -> Dict[str, bool]:
-    """Sıkıştırılmış DICOM (JPEG Lossless / JPEG 2000) çözücülerini kurar ve doğrular.
+    """Install and verify decoders for compressed DICOM (JPEG Lossless / JPEG 2000).
 
-    Veri setinde bazı seriler sıkıştırılmış; pydicom bunları ek kütüphane olmadan açamaz ve
-    hata verir. Kaggle imajında bu paketler yok. Önce verilen klasörlerdeki wheel'lerden
-    (internetsiz) kurmayı, olmazsa internetten kurmayı dener. Dönen sözlük hangi çözücünün
-    hazır olduğunu gösterir; ikisi de False ise sıkıştırılmış seriler okunamaz.
+    Some series are compressed; pydicom cannot open them without extra libraries and raises an error.
+    The installer first tries wheels from the given folders (offline), then the internet. The returned dict
+    shows which decoder is available; if both are False, compressed series cannot be read.
     """
     import importlib
     import subprocess
@@ -85,15 +84,15 @@ class SliceHeader:
 
 @dataclass
 class SeriesGeometry:
-    headers: List[SliceHeader]  # anatomik sırada
-    plane: str  # geometriden çıkarılan düzlem
-    row_axis: int  # satır yönünün baskın hasta ekseni
+    headers: List[SliceHeader]  # in anatomical order
+    plane: str  # plane derived from the geometry
+    row_axis: int  # dominant patient axis of the row direction
     col_axis: int
     normal_axis: int
-    flip_lr: bool  # yön standardizasyonu için yatay çevirme
+    flip_lr: bool  # horizontal flip for orientation standardisation
     flip_ud: bool
     laterality_tag: Optional[str]
-    center_x_mm: Optional[float]  # görüntü merkezinin hasta x koordinatı
+    center_x_mm: Optional[float]  # patient x coordinate of the image centre
     sorted_by_geometry: bool = True
     notes: List[str] = field(default_factory=list)
 
@@ -128,24 +127,24 @@ def read_header(path: Path) -> SliceHeader:
 
 
 def analyze_series(series_dir: Path) -> SeriesGeometry:
-    """Başlıkları okur, kesitleri anatomik sıraya koyar ve yön bilgisini çıkarır."""
+    """Read the headers, put the slices in anatomical order and extract the orientation."""
     files = sorted(Path(series_dir).glob("*.dcm"))
     if not files:
-        raise FileNotFoundError(f"DICOM yok: {series_dir}")
+        raise FileNotFoundError(f"no DICOM files: {series_dir}")
     headers, notes = [], []
     for f in files:
         try:
             headers.append(read_header(f))
-        except Exception:  # tek bozuk dosya tüm seriyi düşürmesin
+        except Exception:  # one broken file must not drop the whole series
             pass
     if len(headers) < len(files):
         notes.append(f"unreadable_files={len(files) - len(headers)}")
     if len(headers) < 3:
-        raise ValueError(f"Okunabilir kesit < 3: {series_dir}")
+        raise ValueError(f"fewer than 3 readable slices: {series_dir}")
 
     ref = next((h for h in headers if h.iop is not None), None)
     if ref is None:
-        # Geometri yok: InstanceNumber'a göre sırala, yön düzeltmesi yapma.
+        # No geometry: sort by InstanceNumber, no orientation fix.
         headers.sort(key=lambda h: h.instance)
         return SeriesGeometry(headers, "Unknown", 0, 1, 2, False, False,
                               _first_lat(headers), None, False, ["iop_missing"])
@@ -154,8 +153,8 @@ def analyze_series(series_dir: Path) -> SeriesGeometry:
     n = np.cross(r, c)
     row_axis, col_axis, normal_axis = (int(np.argmax(np.abs(v))) for v in (r, c, n))
 
-    # 1) Kesit sırası: kesit normalinin baskın ekseni boyunca artan konum.
-    #    (x: sağ->sol, y: ön->arka, z: aşağı->yukarı) Cihazdan bağımsız sabit bir yön.
+    # 1) Slice order: increasing position along the dominant axis of the slice normal
+    #    (x: right->left, y: anterior->posterior, z: inferior->superior), the same for every scanner.
     if all(h.ipp is not None for h in headers):
         headers.sort(key=lambda h: h.ipp[normal_axis])
         sorted_geo = True
@@ -164,14 +163,14 @@ def analyze_series(series_dir: Path) -> SeriesGeometry:
         sorted_geo = False
         notes.append("ipp_missing_sorted_by_instance")
 
-    # 2) Yön standardizasyonu: satır yönü +x/+y'ye, sütun yönü -z (baş yukarıda) ya da +y'ye.
+    # 2) Orientation: row direction towards +x/+y, column direction towards -z (head up) or +y.
     def needs_flip(vec, axis):
         return bool(vec[axis] > 0) if axis == 2 else bool(vec[axis] < 0)
 
     flip_lr = needs_flip(r, row_axis)
     flip_ud = needs_flip(c, col_axis)
 
-    # 4) Görüntü merkezinin hasta x koordinatı (laterality yedeği için).
+    # 3) Patient x coordinate of the image centre (fallback for laterality).
     center_x = None
     mid = headers[len(headers) // 2]
     if mid.ipp is not None and mid.pixel_spacing is not None and mid.rows and mid.cols:
@@ -199,11 +198,11 @@ def _first_lat(headers: Sequence[SliceHeader]) -> Optional[str]:
 
 
 def resolve_laterality(geoms: Sequence[SeriesGeometry], min_offset_mm: float = 10.0) -> Dict:
-    """Bir vakanın dizinin sağ mı sol mu olduğunu belirler.
+    """Decide whether a study shows a right or a left knee.
 
-    Öncelik DICOM `Laterality` etiketindedir. Yoksa görüntü merkezinin x koordinatının
-    medyanına bakılır: x < 0 -> sağ diz (R). Orta hatta çok yakınsa (|x| < eşik) karar
-    verilmez (None) ve aynalama yapılmaz.
+    The DICOM `Laterality` tag wins. Without it, the median x coordinate of the image centres decides:
+    x < 0 -> right knee (R). Too close to the midline (|x| < threshold) gives no decision (None) and no mirroring.
+    Agreement with the tag where both exist: 98.5%.
     """
     tags = [g.laterality_tag for g in geoms if g.laterality_tag]
     xs = [g.center_x_mm for g in geoms if g.center_x_mm is not None]
@@ -218,7 +217,7 @@ def resolve_laterality(geoms: Sequence[SeriesGeometry], min_offset_mm: float = 1
 
 
 def select_indices(n_total: int, n_out: int, keep_frac: float = 0.8) -> np.ndarray:
-    """Yığının ortadaki `keep_frac` kısmından eşit aralıklı `n_out` kesit indeksi."""
+    """`n_out` evenly spaced slice indices from the central `keep_frac` of the stack."""
     if n_total <= 0:
         return np.zeros(0, dtype=int)
     margin = (1 - keep_frac) / 2
@@ -234,24 +233,24 @@ def _read_pixels(h: SliceHeader) -> np.ndarray:
     arr = arr * slope + inter
     if getattr(ds, "PhotometricInterpretation", "") == "MONOCHROME1":
         arr = arr.max() - arr
-    if arr.ndim == 3:  # nadir: çok kareli / RGB
+    if arr.ndim == 3:  # rare: multi-frame / RGB
         arr = arr.mean(axis=-1) if arr.shape[-1] in (3, 4) else arr[arr.shape[0] // 2]
     return arr
 
 
 def _resample(arr: np.ndarray, spacing: Optional[np.ndarray], size: int, fov_mm: float) -> np.ndarray:
-    """Sabit FOV'a göre yeniden örnekle, sonra merkezden kırp / doldur -> (size, size)."""
+    """Resample to a fixed FOV, then centre-crop / pad -> (size, size)."""
     h, w = arr.shape
     if spacing is None or np.any(spacing <= 0):
-        spacing = np.array([fov_mm / max(h, w)] * 2)  # bilinmiyorsa tüm görüntü = FOV
-    target = fov_mm / size  # mm / piksel
+        spacing = np.array([fov_mm / max(h, w)] * 2)  # unknown spacing: the whole image is the FOV
+    target = fov_mm / size  # mm per pixel
     nh = max(1, int(round(h * spacing[0] / target)))
     nw = max(1, int(round(w * spacing[1] / target)))
     t = torch.from_numpy(np.ascontiguousarray(arr))[None, None]
     t = F.interpolate(t, size=(nh, nw), mode="bilinear", align_corners=False,
                       antialias=(nh < h or nw < w))[0, 0]
     out = torch.zeros((size, size), dtype=t.dtype)
-    # merkezden kırp / doldur
+    # centre-crop / pad
     sy, sx = max(0, (nh - size) // 2), max(0, (nw - size) // 2)
     dy, dx = max(0, (size - nh) // 2), max(0, (size - nw) // 2)
     ch, cw = min(size, nh), min(size, nw)
@@ -268,9 +267,9 @@ def load_series_volume(
     keep_frac: float = 0.8,
     pct: tuple = (0.5, 99.5),
 ) -> np.ndarray:
-    """Kanonik uint8 hacim döndürür: [n_slices, size, size].
+    """Return a canonical uint8 volume: [n_slices, size, size].
 
-    mirror_to_left=True ise (sağ diz) görüntü "sol diz" görünümüne aynalanır.
+    With mirror_to_left=True (a right knee) the image is mirrored to the left-knee view.
     """
     _require_pydicom()
     idx = select_indices(len(geom.headers), n_slices, keep_frac)
@@ -285,7 +284,7 @@ def load_series_volume(
         vol = vol[:, ::-1, :]
 
     if mirror_to_left:
-        # Hastanın sol-sağ ekseni (x) hangi eksende ise o eksende aynala.
+        # Mirror along whichever image axis carries the patient's left-right (x) axis.
         if geom.row_axis == 0:
             vol = vol[:, :, ::-1]
         elif geom.col_axis == 0:
@@ -293,7 +292,7 @@ def load_series_volume(
         elif geom.normal_axis == 0:
             vol = vol[::-1]
 
-    # Seri düzeyinde yoğunluk normalizasyonu (tüm kesitler aynı pencereyle).
+    # Series-level intensity normalisation (one window for all slices).
     fg = vol[vol > 0]
     lo, hi = np.percentile(fg if fg.size > 100 else vol, pct)
     vol = np.clip((vol - lo) / max(hi - lo, 1e-6), 0, 1)

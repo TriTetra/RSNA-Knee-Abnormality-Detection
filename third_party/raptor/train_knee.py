@@ -1,14 +1,14 @@
 # =====================================================================================
 # KAYNAK: dreaddevelopment, "Knee MRI: training the twelve-finding model" (public Kaggle
 # notebook: kaggle.com/code/dreaddevelopment/knee-mri-training-the-twelve-finding-model).
-# Bu kopyada yalnızca üç değişiklik var (aranacak etiket: "[KADIROV PATCH]"):
-#   1. bf16 desteklemeyen GPU'larda (T4/P100) fp16 + GradScaler kullanılır.
-#   2. --time_budget_h: Kaggle oturum sınırından önce eğitimi temiz biçimde bitirir.
-#   3. --log_every: epoch içi ilerleme logu.
-#   6. RAPTOR_NPZ_DIR: vaka başına sıkıştırılmış corpus (disk kısıtlı makineler).
-#   5. RAPTOR_INPUT_ROOT ortam değişkeni: Kaggle dışında (Colab vb.) girdi kök klasörü.
-#   4. Çok parçalı corpus (corpus_{vols,masks,ids}_sNN.npy) desteği; _find DICOM ağacına girmez.
-# Model, veri ve kayıt mantığı orijinaldir.
+# Changes in this copy (search for the tag "[KADIROV PATCH]"):
+#   1. fp16 + GradScaler on GPUs without bf16 support (T4 / P100).
+#   2. --time_budget_h: stop cleanly before the Kaggle session limit.
+#   3. --log_every: progress log inside an epoch.
+#   4. Multi-shard corpus (corpus_{vols,masks,ids}_sNN.npy); _find never walks the DICOM tree.
+#   5. RAPTOR_INPUT_ROOT: input root outside Kaggle (local server, Colab, ...).
+#   6. RAPTOR_NPZ_DIR: one compressed .npz per study (machines with little disk).
+# Model, data and checkpoint logic are the original ones.
 # =====================================================================================
 # %% [code]
 # %% [code]
@@ -90,7 +90,7 @@ from torch.utils.data import Dataset, DataLoader
 from sklearn.metrics import roc_auc_score
 import timm
 
-# [KADIROV PATCH] T4/P100 bf16'yı donanımda desteklemez -> fp16 + GradScaler
+# [KADIROV PATCH] T4/P100 have no hardware bf16 -> fp16 + GradScaler
 def _amp_dtype():
     if torch.cuda.is_available() and torch.cuda.get_device_capability()[0] >= 8:
         return torch.bfloat16
@@ -115,7 +115,7 @@ RSNA = os.path.dirname(HERE)
 def _find(*names, root=os.environ.get("RAPTOR_INPUT_ROOT", "/kaggle/input")):
     """First path under root whose basename matches one of names."""
     for d, _dirs, fs in os.walk(root):
-        _dirs[:] = sorted(x for x in _dirs if x not in ("train_series", "test_series"))  # [KADIROV PATCH] DICOM ağacına girme
+        _dirs[:] = sorted(x for x in _dirs if x not in ("train_series", "test_series"))  # [KADIROV PATCH] never walk the DICOM tree
         for n in names:
             if n in fs:
                 return os.path.join(d, n)
@@ -143,7 +143,7 @@ class _TwoPartVols:
 
 
 def _find_shards(prefix, root=os.environ.get("RAPTOR_INPUT_ROOT", "/kaggle/input")):
-    """[KADIROV PATCH] corpus_{vols,masks,ids}_sNN.npy parçalarını sırayla bulur."""
+    """[KADIROV PATCH] Find the corpus_{vols,masks,ids}_sNN.npy shards in order."""
     import re as _re
     hits = []
     for d, _dirs, fs in os.walk(root):
@@ -156,7 +156,7 @@ def _find_shards(prefix, root=os.environ.get("RAPTOR_INPUT_ROOT", "/kaggle/input
 
 
 class _MultiPartVols:
-    """[KADIROV PATCH] N parçalı corpus'u tek dizi gibi gösterir (her parça memmap)."""
+    """[KADIROV PATCH] Present an N-shard corpus as one array (each shard is a memmap)."""
     def __init__(self, parts):
         self.parts = parts
         self.offsets = np.cumsum([0] + [p.shape[0] for p in parts])
@@ -171,8 +171,8 @@ class _MultiPartVols:
 
 
 class _NpzDirVols:
-    """[KADIROV PATCH] Vaka başına sıkıştırılmış .npz dosyaları (disk kısıtlı makineler için).
-    Klasör: RAPTOR_NPZ_DIR/<satır>.npz (anahtar 'v'), sıra = corpus_ids birleşim sırası."""
+    """[KADIROV PATCH] One compressed .npz per study (for machines with little disk).
+    Folder: RAPTOR_NPZ_DIR/<row>.npz (key 'v'); row order = concatenated corpus_ids order."""
     def __init__(self, d, n, shape):
         self.d, self.shape = d, (n,) + tuple(shape)
 
@@ -186,17 +186,17 @@ class _NpzDirVols:
 
 def _open_corpus():
     """Return (vols, masks), from a local single-file corpus or the two public parts."""
-    npz_dir = os.environ.get("RAPTOR_NPZ_DIR")  # [KADIROV PATCH] sıkıştırılmış vaka dosyaları
+    npz_dir = os.environ.get("RAPTOR_NPZ_DIR")  # [KADIROV PATCH] compressed per-study files
     if npz_dir:
         masks = np.load(os.path.join(npz_dir, "masks.npy"))
         first = np.load(os.path.join(npz_dir, "00000.npz"))["v"]
-        print(f"[corpus] npz klasörü: {npz_dir} | {masks.shape[0]} vaka | {first.shape}", flush=True)
+        print(f"[corpus] npz folder: {npz_dir} | {masks.shape[0]} studies | {first.shape}", flush=True)
         return _NpzDirVols(npz_dir, masks.shape[0], first.shape), masks
-    vs = _find_shards("corpus_vols")  # [KADIROV PATCH] kendi çok parçalı corpus'umuz
+    vs = _find_shards("corpus_vols")  # [KADIROV PATCH] our own multi-shard corpus
     if vs:
         ms = _find_shards("corpus_masks")
-        assert len(vs) == len(ms), "vols/masks parça sayısı farklı"
-        print(f"[corpus] {len(vs)} parça: {[os.path.basename(v) for v in vs]}", flush=True)
+        assert len(vs) == len(ms), "different number of vols / masks shards"
+        print(f"[corpus] {len(vs)} shards: {[os.path.basename(v) for v in vs]}", flush=True)
         return (_MultiPartVols([np.load(v, mmap_mode="r") for v in vs]),
                 np.concatenate([np.load(m) for m in ms], axis=0))
     local_v = os.path.join(HERE, "all_vols.npy")
@@ -591,7 +591,7 @@ def main():
     best = 0.0; best_state = None; best_P = None; t0 = time.time(); hist = []
     TOPK = max(1, a.topk); topk = []
     for ep in range(a.epochs):
-        # [KADIROV PATCH] süre bütçesi: bir epoch daha sığmayacaksa dur
+        # [KADIROV PATCH] time budget: stop if another epoch would not fit
         if ep > 0 and a.time_budget_h > 0:
             per_ep = (time.time() - t0) / ep
             if time.time() - t0 + per_ep > a.time_budget_h * 3600:
@@ -604,7 +604,7 @@ def main():
             with torch.autocast(dev, dtype=AMP_DTYPE, enabled=dev == "cuda"):
                 logits = model(x)
                 loss = lossf(logits.float(), y)
-            # [KADIROV PATCH] GradScaler (fp16'da gerekli; bf16'da devre dışı)
+            # [KADIROV PATCH] GradScaler (needed for fp16, disabled for bf16)
             scaler.scale(loss).backward()
             scaler.unscale_(opt)
             torch.nn.utils.clip_grad_norm_(model.parameters(), 3.0)

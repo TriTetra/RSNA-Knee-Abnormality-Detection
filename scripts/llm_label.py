@@ -1,18 +1,21 @@
-"""Raporları OpenAI uyumlu bir LLM sunucusuyla etiketler (vLLM / Ollama / LM Studio / ticari API).
+"""Label the radiology reports with any OpenAI-compatible LLM server (vLLM / Ollama / LM Studio / commercial API).
 
-Ayarlar `.env` dosyasından okunur (anahtarlar sohbete ya da koda yazılmaz):
-    LLM_BASE_URL=http://SUNUCU:8000/v1
+Settings are read from `.env` (keys never go into code or chat):
+    LLM_BASE_URL=http://SERVER:8000/v1
     LLM_MODEL=Qwen/Qwen3-32B
-    LLM_API_KEY=...            (gerekmiyorsa boş bırakılabilir)
+    LLM_API_KEY=...            (may be empty)
 
-Kullanım:
-    python scripts/llm_label.py --pilot --backend ollama --url http://192.168.1.194:11434 --model qwen3.5:27b
-    python scripts/llm_label.py --pilot          # yalnızca 58 altın vaka -> AUC raporu
-    python scripts/llm_label.py --all            # 4.407 raporun hepsi (kaldığı yerden devam eder)
-    python scripts/llm_label.py --all --workers 16
+Usage:
+    python scripts/llm_label.py --pilot --backend ollama --url http://SERVER:11434 --model qwen3.5:27b
+    python scripts/llm_label.py --pilot          # the 58 gold studies only -> AUC report
+    python scripts/llm_label.py --all            # all 4,407 reports (resumes where it stopped)
+    python scripts/llm_label.py --all --score    # 0-100 graded scores instead of letters (keeps ranking information)
 
-Çıktı: data/external/llm_<model>/codes.csv (P/A/N/U harfleri + ham cevap) ve labels.csv
-(StudyInstanceUID + 12 bulgu olasılığı; src/labels.py ile doğrudan kaynak olarak kullanılabilir).
+Output: data/external/llm_<model>/codes.csv (P/A/N/U letters or scores + raw answer) and labels.csv
+(StudyInstanceUID + 12 probabilities; usable directly as a source in src/labels.py).
+
+Results in this competition (58 gold studies): Qwen2.5-7B letters 0.797, Qwen3.5-27B letters 0.828,
+Qwen3.5-27B scores 0.881; public label sets were stronger (~0.90), so none of these was used.
 """
 from __future__ import annotations
 
@@ -41,7 +44,7 @@ except ImportError:
 
 KEYS = ["ACL", "MCL", "MM", "LM", "MOA", "LOA", "PFOA", "EFF", "SYN", "BAKER", "CONT", "FX"]
 KEY2COL = dict(zip(KEYS, TARGET_COLS))
-# Harf -> olasılık. Altın vakalara göre AYARLANMAZ (58 vaka buna yetmez).
+# Letter -> probability. NOT tuned on the gold studies (58 studies are too few for that).
 CODE_P = {"P": 0.95, "U": 0.6, "N": 0.08, "A": 0.03}
 
 SYSTEM = """You are an expert musculoskeletal radiologist. You read one knee MRI report (it may be in any language: English, Spanish, French, Dutch, German, Greek, Turkish, Portuguese, Italian, ...) and classify twelve findings strictly from what the report says.
@@ -115,7 +118,7 @@ LETTER = re.compile(r'"(\w+)"\s*:\s*"([PANUpanu])"')
 
 
 def parse(text: str) -> dict:
-    text = re.sub(r"<think>.*?</think>", "", text or "", flags=re.S)  # Qwen3 düşünme bloğu
+    text = re.sub(r"<think>.*?</think>", "", text or "", flags=re.S)  # Qwen3 thinking block
     found = {k: v.upper() for k, v in LETTER.findall(text)}
     return {k: found.get(k, "") for k in KEYS}
 
@@ -129,11 +132,11 @@ def ask(session: requests.Session, report: str, cfg: dict, retries: int = 4) -> 
         "max_tokens": cfg["max_tokens"],
     }
     if cfg["no_think"]:
-        # Qwen3 / Qwen3.5: düşünmeyi kapat (vLLM ve çoğu sunucu bu alanı kabul eder)
+        # Qwen3 / Qwen3.5: disable thinking (vLLM and most servers accept this field)
         body["chat_template_kwargs"] = {"enable_thinking": False}
     headers = {"Authorization": f"Bearer {cfg['key']}"} if cfg["key"] else {}
     if cfg["backend"] == "ollama":
-        # Ollama'nın kendi API'si: düşünme modu `think` ile, JSON çıktısı `format` ile zorlanır
+        # Ollama's own API: thinking via `think`, JSON output forced via `format`
         body = {"model": cfg["model"], "messages": body["messages"], "stream": False,
                 "think": not cfg["no_think"],
                 "options": {"temperature": 0, "num_ctx": cfg["num_ctx"], "num_predict": cfg["max_tokens"]}}
@@ -149,7 +152,7 @@ def ask(session: requests.Session, report: str, cfg: dict, retries: int = 4) -> 
                              timeout=cfg["timeout"])
             r.raise_for_status()
             return r.json()["choices"][0]["message"]["content"] or ""
-        except Exception as e:  # ağ / sunucu hatası: bekle ve tekrar dene
+        except Exception as e:  # network / server error: wait and retry
             if attempt == retries - 1:
                 return f"__ERROR__ {type(e).__name__}: {e}"
             time.sleep(2 * (attempt + 1))
@@ -172,36 +175,36 @@ def gold_report(probs: pd.DataFrame) -> None:
     gold = train[train[TARGET_COLS[0]].notna()].set_index("StudyInstanceUID")[TARGET_COLS]
     p = probs.set_index("StudyInstanceUID").reindex(gold.index)
     aucs = {c: roc_auc_score(gold[c], p[c].fillna(0.15)) for c in TARGET_COLS if gold[c].nunique() > 1}
-    print(f"\nAltın vaka makro AUC: {np.mean(list(aucs.values())):.4f}  (n={p.notna().all(axis=1).sum()})")
+    print(f"\nGold macro AUC: {np.mean(list(aucs.values())):.4f}  (n={p.notna().all(axis=1).sum()})")
     print(pd.Series(aucs).round(3).to_string())
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--pilot", action="store_true", help="yalnızca 58 altın vaka")
-    ap.add_argument("--all", action="store_true", help="tüm raporlar")
+    ap.add_argument("--pilot", action="store_true", help="the 58 gold studies only")
+    ap.add_argument("--all", action="store_true", help="all reports")
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--max-tokens", type=int, default=256)
-    ap.add_argument("--think", action="store_true", help="Qwen3 düşünme modunu açık bırak (yavaş, max-tokens artırın)")
+    ap.add_argument("--think", action="store_true", help="keep Qwen3 thinking on (slow; raise --max-tokens)")
     ap.add_argument("--timeout", type=int, default=600)
-    ap.add_argument("--url", default=os.getenv("LLM_BASE_URL", ""), help="ör. http://192.168.1.194:11434")
-    ap.add_argument("--model", default=os.getenv("LLM_MODEL", ""), help="ör. qwen3.5:27b")
+    ap.add_argument("--url", default=os.getenv("LLM_BASE_URL", ""), help="e.g. http://SERVER:11434")
+    ap.add_argument("--model", default=os.getenv("LLM_MODEL", ""), help="e.g. qwen3.5:27b")
     ap.add_argument("--backend", default=os.getenv("LLM_BACKEND", "openai"), choices=["openai", "ollama"])
-    ap.add_argument("--num-ctx", type=int, default=8192, help="Ollama bağlam uzunluğu")
-    ap.add_argument("--score", action="store_true", help="harf yerine 0-100 dereceli puan (sıralama bilgisini korur)")
+    ap.add_argument("--num-ctx", type=int, default=8192, help="Ollama context length")
+    ap.add_argument("--score", action="store_true", help="0-100 graded score instead of letters (keeps ranking information)")
     a = ap.parse_args()
 
     cfg = {"url": a.url, "model": a.model, "backend": a.backend, "num_ctx": a.num_ctx,
            "key": os.getenv("LLM_API_KEY", ""), "max_tokens": a.max_tokens, "no_think": not a.think,
            "timeout": a.timeout, "score": a.score}
     if not cfg["url"] or not cfg["model"]:
-        raise SystemExit("--url ve --model verin (ya da .env'de LLM_BASE_URL / LLM_MODEL).")
+        raise SystemExit("pass --url and --model (or set LLM_BASE_URL / LLM_MODEL in .env)")
 
     train = pd.read_csv(DATA_DIR / "train.csv")
     if a.pilot:
         train = train[train[TARGET_COLS[0]].notna()]
     elif not a.all:
-        raise SystemExit("--pilot ya da --all seçin.")
+        raise SystemExit("choose --pilot or --all")
 
     tag = re.sub(r"[^a-zA-Z0-9]+", "_", cfg["model"]).strip("_").lower() + ("_think" if a.think else "") + ("_score" if a.score else "")
     out_dir = DATA_DIR / "external" / f"llm_{tag}"
@@ -210,7 +213,7 @@ def main():
     done = pd.read_csv(codes_path) if codes_path.exists() else pd.DataFrame(columns=["StudyInstanceUID"])
     done = done[~done.get("raw", pd.Series(dtype=str)).astype(str).str.startswith("__ERROR__")] if len(done) else done
     todo = train[~train.StudyInstanceUID.isin(set(done.StudyInstanceUID))]
-    print(f"Model: {cfg['model']} | sunucu: {cfg['url']} | tamamlanmış: {len(done)} | kalan: {len(todo)}")
+    print(f"Model: {cfg['model']} | server: {cfg['url']} | done: {len(done)} | left: {len(todo)}")
 
     rows = done.to_dict("records")
     session = requests.Session()
@@ -223,14 +226,14 @@ def main():
             if n % 50 == 0 or n == len(futs):
                 pd.DataFrame(rows).to_csv(codes_path, index=False)
                 rate = n / (time.time() - t0)
-                print(f"  {n}/{len(futs)}  {rate:.2f} rapor/sn  (~{(len(futs) - n) / max(rate, 1e-6) / 60:.0f} dk kaldı)", flush=True)
+                print(f"  {n}/{len(futs)}  {rate:.2f} reports/s  (~{(len(futs) - n) / max(rate, 1e-6) / 60:.0f} min left)", flush=True)
 
     codes = pd.DataFrame(rows)
     codes.to_csv(codes_path, index=False)
     n_err = codes.raw.astype(str).str.startswith("__ERROR__").sum()
     empty = codes[KEYS].astype(str).isin(["", "nan"]).mean().mean() if len(codes) else 0
-    print(f"\nBitti: {len(codes)} rapor | hata {n_err} | ayrıştırılamayan hücre oranı {empty:.3f} | "
-          f"{(time.time() - t0) / 60:.1f} dk")
+    print(f"\nDone: {len(codes)} reports | errors {n_err} | unparsed cell share {empty:.3f} | "
+          f"{(time.time() - t0) / 60:.1f} min")
     probs = to_probs(codes, score=a.score)
     probs.to_csv(out_dir / ("labels_pilot.csv" if a.pilot else "labels.csv"), index=False)
     gold_report(probs)

@@ -1,22 +1,22 @@
-"""Merkezi yapılandırma: yollar, hedef sütunlar ve ortam (yerel / Kaggle) tespiti.
+"""Central configuration: paths, target columns and environment (local / Kaggle) detection.
 
-Aynı kod hem yerelde hem de Kaggle notebook'unda çalışır. Kaggle'da yarışma verisi
-`/kaggle/input/...` altına bağlanır; yerelde `data/` klasörü kullanılır.
+The same code runs locally and inside Kaggle notebooks. On Kaggle the competition data is mounted under
+`/kaggle/input/...`; locally the `data/` folder is used.
 """
 from pathlib import Path
 import os
 
-# --- Yollar -----------------------------------------------------------------
+# --- Paths -----------------------------------------------------------------
 SRC_DIR = Path(__file__).resolve().parent
 ROOT_DIR = SRC_DIR.parent
 IS_KAGGLE = Path("/kaggle/input").exists()
 
-# /kaggle/input altında yarışma verisinin ~730 bin DICOM'u var; rglob bunların hepsini dolaşır
-# ve dakikalar sürer (05 eğitiminde 15+ dk kayıp). Aşağıdaki yardımcılar bu klasörlere girmez.
+# /kaggle/input holds ~730k competition DICOM files; rglob walks all of them and takes minutes
+# (it cost 15+ minutes in notebook 05). The helpers below never enter those folders.
 
 
 def _find_competition_dir() -> Path:
-    """`train_series.csv` veya `test_series.csv` içeren yarışma klasörünü bulur."""
+    """Find the competition folder (the one containing `test_series.csv`)."""
     if IS_KAGGLE:
         for cand in [
             Path("/kaggle/input/rsna-knee-abnormality-detection"),
@@ -34,7 +34,7 @@ SKIP_DIRS = {"train_series", "test_series", "train_images", "test_images"}
 
 
 def find_inputs(pattern: str, root: str = "/kaggle/input"):
-    """Dosya adı `pattern` (ör. "model_fold*.pt") ile eşleşen tüm dosyalar (DICOM klasörlerine girmez)."""
+    """All files whose name matches `pattern` (e.g. "model_fold*.pt"); never enters the DICOM folders."""
     import fnmatch
     out = []
     for d, dirs, files in os.walk(root):
@@ -44,9 +44,9 @@ def find_inputs(pattern: str, root: str = "/kaggle/input"):
 
 
 def find_input(name: str, root: str = "/kaggle/input"):
-    """`root` altında adı `name` olan ilk dosyayı/klasörü döndürür (DICOM klasörlerine girmez).
+    """First file or folder named `name` under `root`; never enters the DICOM folders.
 
-    `name` "third_party/raptor/infer_knee.py" gibi alt yol da olabilir.
+    `name` may be a relative path such as "third_party/raptor/infer_knee.py".
     """
     parts = Path(name).parts
     for d, dirs, files in os.walk(root):
@@ -62,7 +62,7 @@ DATA_DIR = _find_competition_dir()
 EXPERIMENTS_DIR = Path("/kaggle/working") if IS_KAGGLE else ROOT_DIR / "experiments"
 NOTEBOOKS_DIR = ROOT_DIR / "notebooks"
 
-# --- Kaggle API anahtarı (yalnızca yerelde, .env dosyasından) ----------------
+# --- Kaggle API token (local only, from .env) ----------------
 KAGGLE_API_TOKEN = None
 if not IS_KAGGLE:
     try:
@@ -75,7 +75,7 @@ if not IS_KAGGLE:
     if KAGGLE_API_TOKEN:
         os.environ["KAGGLE_API_TOKEN"] = KAGGLE_API_TOKEN
 
-# --- 12 hedef bulgu (sample_submission sütun sırası) -------------------------
+# --- The 12 target findings (sample_submission column order) -------------------------
 TARGET_COLS = [
     "ACL",
     "MCL",
@@ -101,7 +101,7 @@ def validate_config() -> None:
 
 
 def get_kaggle_api():
-    """Kimliği doğrulanmış bir KaggleApi nesnesi döndürür (yalnızca yerel)."""
+    """Return an authenticated KaggleApi object (local only)."""
     validate_config()
     from kaggle.api.kaggle_api_extended import KaggleApi
 

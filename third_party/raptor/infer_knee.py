@@ -1,10 +1,10 @@
 # =====================================================================================
 # KAYNAK: dreaddevelopment, "Knee MRI: twelve findings from a single model" (public Kaggle
 # notebook: kaggle.com/code/dreaddevelopment/knee-mri-twelve-findings-from-a-single-model).
-# [KADIROV PATCH] değişiklikleri: geometri (SLOTS, IMG, CROP_MM, SPAN, K_EVAL), NORM, ARMS ve
-# çıktı yolu ortam değişkeni RAPTOR_CFG (JSON dosyası) ile verilebilir; böylece 44 kesitlik
-# corpus ile eğitilmiş kendi checkpoint'lerimiz aynı geometriyle çalıştırılır. Model,
-# ön işleme ve pencereleme mantığı orijinaldir.
+# [KADIROV PATCH] changes: geometry (SLOTS, IMG, CROP_MM, SPAN, K_EVAL), NORM, ARMS and the output path
+# can be set through the RAPTOR_CFG environment variable (a JSON file), so our own checkpoints trained on
+# other corpora (44 or 80 slices) run with their training geometry. Model, preprocessing and windowing
+# logic are the original ones.
 # =====================================================================================
 # %% [code]
 #!/usr/bin/env python3
@@ -371,7 +371,7 @@ def build_study(sid, ser_records, tsdir, reader):
 # Test-root discovery + weights + main
 # ============================================================================
 def find_test_root():
-    # [KADIROV PATCH] RAPTOR_TEST_ROOT: teşhis için başka bir kök (ör. altın vakalardan kurulmuş sahte test)
+    # [KADIROV PATCH] RAPTOR_TEST_ROOT: another test root for diagnostics (e.g. a fake test set built from the gold studies)
     if os.environ.get("RAPTOR_TEST_ROOT"):
         return os.environ["RAPTOR_TEST_ROOT"]
     cands = ["/kaggle/input/competitions/rsna-knee-abnormality-detection",
@@ -460,7 +460,7 @@ def main():
             torch.cuda.empty_cache()
         print(f"[arm {a}] done + freed | {time.time()-t0:.0f}s", flush=True)
 
-    # [KADIROV PATCH] ham olasılıkları da kaydet (blend analizi için)
+    # [KADIROV PATCH] also save the raw probabilities (for blend analysis)
     for a, arm in enumerate(ARMS):
         _raw = pd.DataFrame(arm_probs[a], columns=LAB); _raw.insert(0, "StudyInstanceUID", test_ids)
         _raw.to_csv(OUT_PATH.replace(".csv", f"_raw_arm{a}.csv"), index=False)
