@@ -9,6 +9,14 @@ contusion, fracture) for every study. Metric: mean ROC AUC over the 12 findings.
 **The knowledge base is in [`docs/`](docs/README.md)**: task and data traps, DICOM preprocessing, labels, models,
 blending, infrastructure, the full experiment log, the winners' methods and a playbook for the next competition.
 
+## Links
+
+| | |
+|---|---|
+| Kaggle summary notebook | [RSNA Knee: what moved the leaderboard](https://www.kaggle.com/code/kadirov0/rsna-knee-what-moved-the-leaderboard) |
+| Competition | [RSNA Knee Abnormality Detection](https://www.kaggle.com/competitions/rsna-knee-abnormality-detection) |
+| Kaggle profiles | [kadirov0](https://www.kaggle.com/kadirov0) · [miraysudemutlu](https://www.kaggle.com/miraysudemutlu) |
+
 ![Every submission](docs/assets/lb_journey.svg)
 
 ## What is in this repository
