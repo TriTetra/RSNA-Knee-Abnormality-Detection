@@ -167,7 +167,7 @@ KERNELS = {
                                                      "kadirov0/rsna-knee-srv-kadirov80-lbl3-coatnet-s505"]),
     "10t": dict(file="10t_heliosli_09586_kaggle.ipynb", slug="rsna-knee-10t-heliosli-09586", gpu=True, internet=False,
                 kernels=["goodpjw2008/rsna-knee-coatnet-r6-2-5d-mil-lb-0-958"],
-                datasets=['goodpjw2008/rsna-knee-2-5d-convnext-reader', 'heliosli/rsna-knee-r6-frozen-fe055406',
+                datasets=['goodpjw2008/rsna-knee-2-5d-convnext-reader', 'heliosli/rsna-knee-r6-frozen-fe055406-w1',
                           'nartaa/rsna-knee-publication-swa-weights-20261007', 'heliosli/rsna-orthofoundation-fold0-epoch7-20261004']),
     "08": dict(file="08_llm_etiketleme_kaggle.ipynb", slug="rsna-knee-08-llm-labels", gpu=True,
                internet=True, kernels=[]),
