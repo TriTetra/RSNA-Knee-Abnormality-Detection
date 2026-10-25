@@ -16,10 +16,14 @@ landed around private 0.941–0.942, so private ranks inside that block were dec
 
 ## What the winners did
 
+A dimension-by-dimension comparison with the 1st, 2nd, 3rd and 5th place is in [11 · Top-5 gap analysis](11_top5_gap_analysis.md).
+
 | place | team | private | the decisive idea |
 |---|---|---|---|
 | 1 | Team Kangaroo (tascj, liushuzhi) | 0.960 | **agentic labelling**: one non-interactive CLI agent session per study with tools to view slices; outputs evidence, then probabilities, plus **3D ROI boxes** per finding (751 studies) and per-slice lesion boxes (1,800 studies). A ROI detector (ConvNeXt-T, mean IoU 0.71) drives **box pooling** in a per-slice ConvNeXt-T. Left knees mirrored, a small side classifier for missing tags. |
 | 2 | azamat1ch | 0.960 | **vision-LLM soft labels**: report reader 0.899 → LLM reading every slice with the report 0.942 → fixes + teacher OOF 0.956 on gold. Six 2.5D MIL members (ConvNeXt-T, EfficientNetV2-S, fastMRI-pretrained reader), knee-centred close-ups, hand-set rank weights; two specialists for PF OA and the lateral compartment. |
+| 3 | Zhengru Li et al. | 0.959 | Astra reviews MRI + report; finding-specific readers for PF OA / Lateral OA / Synovitis; 36 checkpoints (BiT, ConvNeXt, DINOv3, CoAtNet) in fixed group budgets; OAI targets. |
+| 5 | Tony Li, Rashmi B, Tucker Arrants, matheus | 0.958 | calibrated report labels + vision-LLM reads + teacher OOF; nnU-Net bone segmentation for 4 anatomy crops; EfficientNetV2-M / ConvNeXt; region specialists; labelling with headless `claude -p` / `codex exec`. |
 | 7 | BarryZhou | 0.957 | **no external data**. Three image-aware LLM reads (structured with 24 graded attributes, image-only, verification), per-hospital Synovitis correction, cross-model teacher OOF (gold 0.952). One 2.5D label-query network (12×12 tokens per window, 3D positions in a common knee frame, 13 zoomed regions), 4 backbones. |
 | 32 | zosamu | — | "Better teachers, better places to look": teacher labels + ROI crops |
 | 129 (silver) | s0chn1y | — | LLM rubric labels, slice-BiGRU ConvNeXt, public blend |

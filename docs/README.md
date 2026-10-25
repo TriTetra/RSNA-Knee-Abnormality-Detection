@@ -20,6 +20,7 @@ what we measured, what the winners did differently and the checklist we want to 
 | final standings and what the winners did | [08 · Results and winning solutions](08_results_and_winners.md) |
 | **what to do differently next time** | [09 · Playbook](09_playbook.md) |
 | terms and every source we read | [10 · Glossary and references](10_glossary_and_references.md) |
+| **exactly what the top 5 did that we did not** | [11 · Top-5 gap analysis](11_top5_gap_analysis.md) |
 
 ## The story in one picture
 
