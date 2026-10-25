@@ -1,11 +1,12 @@
-"""Yarışma sonrası Kaggle temizliği: yalnız final notebook'ları ve bağımlılıklarını bırakır.
+"""Yarışma sonrası Kaggle temizliği.
 
-Kalanlar: kadirov0/rsna-knee-10sa-blend, miraysudemutlu/rsna-knee-10t-heliosli-09586,
-kadirov0/rsna-knee-src, kadirov0/rsna-knee-r80-lbl3-s101, etiket dataset'leri ve RSNA dışı her şey.
+Varsayılan (dar) liste: yalnızca kalabalık yapan ve yeniden üretilebilen işler silinir
+(corpus notebook'ları 11/14/15/16 (~100 GB çıktı), ölçüm varyantları 10sb–10sh, eski 0.500 notebook'u).
+Eğitim notebook'ları, model/etiket dataset'leri ve finaller (10sa, 10t) kalır.
+--tam ile geniş liste: yalnız finaller ve bağımlılıkları kalır (eğitim notebook'ları ve model dataset'leri de silinir).
 
-Varsayılan: yalnızca listeyi gösterir (hiçbir şey silinmez).
-Silmek için:  python scripts/kaggle_temizlik.py --sil
-Silme geri alınamaz.
+Listeyi görmek:  python scripts/kaggle_temizlik.py [--tam]
+Silmek:          python scripts/kaggle_temizlik.py [--tam] --sil      (geri alınamaz)
 """
 import os
 import subprocess
@@ -32,6 +33,8 @@ KADIROV_DATASETS = [f"rsna-knee-srv-kadirov80-{t}" for t in (
     "lbl3-coatnet-f0", "lbl3-coatnet-f1", "lbl3-coatnet-f2", "lbl3-coatnet-f3", "lbl3-coatnet-f4",
     "lbl3-coatnet-s404", "lbl3-coatnet-s505", "lbl3-dinov2-s202", "lbl3-dinov2-s303",
     "lbl4-coatnet-s202", "lbl4-coatnet-s303", "lbl4-convnext-s202")]
+DAR_KERNELS = [k for k in KADIROV_KERNELS if k.startswith(("rsna-knee-11-", "rsna-knee-14-", "rsna-knee-15-", "rsna-knee-16-"))
+               or k in ("rsna-knee-inference-submission",) or k.startswith("rsna-knee-10s")]
 MIRAY_KERNELS = ["rsna-knee-12-raptor80-v2", "rsna-knee-12b-raptor80-v2-s7", "rsna-knee-12c-raptor80-v2-s13",
                  "rsna-knee-12v3-raptor80-lbl3", "rsna-knee-10r-raptor80-only", "rsna-knee-10-final-blend"]
 MIRAY_DATASETS = ["rsna-knee-src"]   # kadirov0/rsna-knee-src'nin kullanılmayan kopyası
@@ -57,7 +60,9 @@ def run(token, kind, ref, really):
 
 if __name__ == "__main__":
     really = "--sil" in sys.argv
-    print("SİLME MODU" if really else "Yalnızca liste (silmek için --sil)")
+    if "--tam" not in sys.argv:   # dar liste: yalnız kadirov0'daki kalabalık
+        KADIROV_KERNELS, KADIROV_DATASETS, MIRAY_KERNELS, MIRAY_DATASETS = DAR_KERNELS, [], [], []
+    print(("SİLME MODU" if really else "Yalnızca liste (silmek için --sil)") + (" · tam liste" if "--tam" in sys.argv else " · dar liste"))
     print(f"kadirov0: {len(KADIROV_KERNELS)} notebook, {len(KADIROV_DATASETS)} dataset")
     for s in KADIROV_KERNELS:
         run(KAGGLE_API_TOKEN, "kernels", f"kadirov0/{s}", really)
