@@ -8,6 +8,22 @@ Kategoriler: **Eklendi** · **Değişti** · **Düzeltildi** · **Kaldırıldı*
 
 ---
 
+## [Sonuç] — 2026-10-25
+
+### Değişti
+- Notebook'lar klasörlere ayrıldı: `notebooks/` (01–06 ana pipeline), `raptor/`, `veri_hazirlik/`, `submission/`, `arsiv/`.
+  `kaggle_push.py` ve `make_blend_variants.py` yeni yerleri kullanıyor.
+- README: sonuç bölümü ve yeni notebook haritası.
+
+### Eklendi
+- `docs/SONUC.md`: final sıra (ön 1.730 / 6.425), tüm gönderimlerin public/private skorları, kazanan çözümlerin özeti ve dersler.
+
+### Düzeltildi
+- 10t: değişen R6 dataset'i yerine aynı bundle'ın `-w1` kopyası.
+
+### Deney
+- Private LB: finaller 10sa ve 10t **0.942** (public 0.958). Kendi modelimiz tek başına private 0.911–0.915.
+
 ## [Yayınlanmadı] — 2026-10-20
 
 ### Eklendi

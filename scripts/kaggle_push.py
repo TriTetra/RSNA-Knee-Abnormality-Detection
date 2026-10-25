@@ -191,7 +191,8 @@ def push_kernel(key: str):
     d = BUILD / k["slug"]
     shutil.rmtree(d, ignore_errors=True)
     d.mkdir(parents=True)
-    shutil.copy(ROOT / "notebooks" / k["file"], d / k["file"])
+    src_nb = next((ROOT / "notebooks").rglob(k["file"]))   # notebook'lar alt klasörlerde (raptor/, submission/ …)
+    shutil.copy(src_nb, d / k["file"])
     meta = {
         "id": f"{u}/{k['slug']}", "title": k["slug"], "code_file": k["file"],
         "language": "python", "kernel_type": "notebook", "is_private": True,

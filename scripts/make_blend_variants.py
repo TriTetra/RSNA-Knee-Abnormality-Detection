@@ -4,15 +4,15 @@ Her varyant aynı Aşama A (public boru hattı, LB 0.956) + Aşama B (Raptor-80,
 kullanır; yalnızca Raptor-80 kolları ve blend ağırlığı değişir. Varyantlar kadirov0 hesabında
 çalışır; checkpoint'ler kadirov0 dataset'lerinden okunur (12v3 de kadirov0/rsna-knee-r80-lbl3-s101'e taşındı).
 
-Kullanım: python scripts/make_blend_variants.py   ->  notebooks/10s{a..e}_blend_kaggle.ipynb
+Kullanım: python scripts/make_blend_variants.py   ->  notebooks/submission/10s{a..h}_blend_kaggle.ipynb
 Push:     python scripts/kaggle_push.py kernel 10sa  (kaggle_push.py'deki VARIANT_KEYS)
 """
 import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "notebooks" / "10_final_blend_kaggle.ipynb"          # Aşama B/C hücreleri (8-11) buradan
-BASE = ROOT / "notebooks" / "_public" / "heliosli_blend_mine_0958.ipynb"  # Aşama A: heliosli 0.958 (hücre 0-8, değiştirilmeden)
+SRC = ROOT / "notebooks" / "submission" / "10_final_blend_kaggle.ipynb"          # Aşama B/C hücreleri (8-11) buradan
+BASE = ROOT / "notebooks" / "submission" / "_public" / "heliosli_blend_mine_0958.ipynb"  # Aşama A: heliosli 0.958 (hücre 0-8, değiştirilmeden)
 
 S101 = {"file": "raptor_ft_kadirov80_lbl3_s101.pt", "fallback": "raptor_ft_kadirov80_lbl3_s101_swa.pt",
         "norm": "imagenet", "w": 1.0}
@@ -61,7 +61,7 @@ def make(key: str, v: dict) -> Path:
         f"# 10s{key} · {v['note']}\n\n",
         "Aşama A: heliosli'nin public 0.958 notebook'u (hücreler değiştirilmeden, kredileri aşağıda). ",
         "Aşama B/C: bizim Raptor-80 (etiket v3) modellerimiz ve final rank blend (bkz. notebooks/10).\n"]})
-    out = ROOT / "notebooks" / f"10s{key}_blend_kaggle.ipynb"
+    out = ROOT / "notebooks" / "submission" / f"10s{key}_blend_kaggle.ipynb"
     out.write_text(json.dumps(nb, ensure_ascii=False, indent=1), encoding="utf-8")
     return out
 

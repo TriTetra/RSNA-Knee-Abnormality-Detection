@@ -7,8 +7,22 @@
 Her diz MR incelemesi (`StudyInstanceUID`) için 12 bulgunun olasılığı tahmin edilir.
 Metrik: 12 bulgunun ROC AUC'sinin ortalaması (yalnızca **sıralama** önemlidir).
 
-📘 **Yöntemler, deney sonuçları ve kararlar:** [docs/YONTEMLER.md](docs/YONTEMLER.md) ·
+📘 **Yöntemler ve sözlük:** [docs/YONTEMLER.md](docs/YONTEMLER.md) ·
+🗓 **12–20 Ekim çalışma raporu:** [docs/RAPOR_12-20_EKIM.md](docs/RAPOR_12-20_EKIM.md) ·
+🏁 **Sonuç ve kazanan çözümler:** [docs/SONUC.md](docs/SONUC.md) ·
 📝 **Değişiklik günlüğü:** [CHANGELOG.md](CHANGELOG.md)
+
+## Sonuç (yarışma 22 Ekim 2026'da bitti)
+
+| | |
+|---|---|
+| Takım | theartificialteam (kadirov0 + miraysudemutlu) |
+| Final (ön) sıra | **1.730 / 6.425** (private LB, kesinleşme bekleniyor) |
+| En iyi skor | public **0.958** · private **0.942** (10sa, 10t, 10sh) |
+| Kendi modelimizin en iyisi | Raptor-80 CoAtNet, etiket v3: public 0.929 · private 0.915 |
+| 1. sıra | private 0.960 (Team Kangaroo) |
+
+Ayrıntılı değerlendirme ve kazananların yöntemleri: [docs/SONUC.md](docs/SONUC.md).
 
 ---
 
@@ -27,19 +41,18 @@ DICOM ──► 03 ön işleme (src/dicom.py) ──► 04 cache ─────
                                     └──────────────── aynı fonksiyonlar ───────────────────────────┘
 ```
 
-## 2. Notebook'lar (sırayla okuyun)
+## 2. Notebook'lar
 
-| # | notebook | nerede çalışır | ne yapar |
-|---|---|---|---|
-| 01 | `01_exploratory_data_analysis.ipynb` | yerel | veri yapısı, etiket dağılımı, diller, sekanslar |
-| 02 | `02_etiketler.ipynb` | yerel ✅ çalıştırıldı | etiket kaynaklarını 58 altın vakaya karşı ölçer, `data/train_labels.csv` üretir |
-| 03 | `03_dicom_onisleme.ipynb` | yerel ✅ çalıştırıldı | ön işlemenin her adımını gerçek bir vaka üzerinde görsel olarak gösterir |
-| 04 | `04_cache_kaggle.ipynb` | Kaggle CPU | tüm eğitim vakalarını kanonik `.npz` hacimlere çevirir (~12 GB) |
-| 05 | `05_egitim_kaggle.ipynb` | Kaggle GPU | modeli fold bazında eğitir, OOF + checkpoint yazar |
-| 06 | `06_submission_kaggle.ipynb` | Kaggle GPU, internet kapalı | test inference + korumalar + `submission.csv` |
+| klasör | notebook'lar | ne yapar |
+|---|---|---|
+| `notebooks/` | 01–06, 05b | Ana pipeline: EDA, etiketler, DICOM ön işleme, cache, ConvNeXt eğitimi, submission |
+| `notebooks/raptor/` | 07, 07b, 07c, 09, 12, 12b, 12c, 12v3, 17 | Raptor (CoAtNet MIL) yeniden eğitimleri, corpus geometri kontrolü, çıkarım–altın doğrulaması |
+| `notebooks/veri_hazirlik/` | 11, 14, 15, 16 (×3 parça) | 80 kesitlik corpus üretimi ve sunucuya taşınması (npz → tar) |
+| `notebooks/submission/` | 10, 10r, 10sa–10sh, 10t, 10v3, `_public/` | Final blend notebook'u, LB ölçüm varyantları, public 0.958 / 0.9586 tarifleri |
+| `notebooks/arsiv/` | 08, 13 | Kullanılmayan denemeler (Qwen-7B etiketleme, Colab eğitimi) |
 
-04–06 yerelde "dry-run" modunda da çalışır (küçük model, tek test vakası) — Kaggle'a
-göndermeden önce kodun uçtan uca çalıştığını doğrulamak için.
+Final submission'lar: `submission/10sa_blend_kaggle.ipynb` ve `submission/10t_heliosli_09586_kaggle.ipynb`
+(her ikisi public 0.958 / private 0.942). Varyantlar `scripts/make_blend_variants.py` ile üretilir.
 
 ## 3. Kod modülleri (`src/`)
 
@@ -90,14 +103,11 @@ python scripts/kaggle_cli.py competitions submit -c rsna-knee-abnormality-detect
 | Doğrulama yalnızca LLM etiketine karşı | iyimser/yanlı metrik | `gold_auc` ayrı raporlanıyor |
 | Her epoch DICOM okuma | çok yavaş eğitim | tek seferlik cache |
 
-## 6. Strateji ve durum
+## 6. Strateji ve sonuç
 
-Leaderboard (13 Ekim): 1. sıra 0.966, ilk 100 ≈ 0.957, 200–700. sıralar 0.956'da yığılmış
-(public blend notebook'ları). Public en iyi notebook'lar birkaç public ağırlık setinin
-rank-blend'idir.
+1. **Taban:** public blend (önce 0.956, sonra heliosli'nin 0.958 tarifi).
+2. **Kendi modellerimiz:** Raptor-80 (CoAtNet, DINOv2, ConvNeXt), rapor etiketleri + pseudo etiket (v3, v4).
+   Tek başına public 0.926–0.929 kaldı; tabana her ağırlıkta eklenmesi skoru düşürdü (0.958 → 0.953).
+3. **Final:** iki 0.958 submission (biri bulgu başına ağırlıklı, biri sabit 50/50 + 2.5D okuyucu).
 
-1. **Taban:** public 0.956–0.957 blend notebook'unun private kopyası (`kadirov0/rsna-knee-public-blend-heliosli`).
-2. **Kendi modelimiz:** doğru ön işlemeyle eğitilmiş, public modellerden farklı bir model.
-   Tek başına ~0.94 bile olsa düşük korelasyonu sayesinde blend'i yukarı taşıyabilir.
-3. **Blend:** public blend + bizim model, ağırlıklar önceden sabit (public LB'ye uydurulmaz).
-4. **Final:** biri temkinli, biri agresif iki gönderim.
+Neden kazananlardan geri kaldığımız ve dersler: [docs/SONUC.md](docs/SONUC.md).
