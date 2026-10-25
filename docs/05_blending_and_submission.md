@@ -1,7 +1,7 @@
 # 05 · Blending and submission
 
-[← index](README.md) · code: [`src/inference.py`](../src/inference.py), [`scripts/make_blend_variants.py`](../scripts/make_blend_variants.py) ·
-notebooks: [`submission/`](../notebooks/submission)
+[← index](README.md) · code: [`src/inference.py`](https://github.com/TriTetra/RSNA-Knee-Abnormality-Detection/blob/main/src/inference.py), [`scripts/make_blend_variants.py`](https://github.com/TriTetra/RSNA-Knee-Abnormality-Detection/blob/main/scripts/make_blend_variants.py) ·
+notebooks: [`submission/`](https://github.com/TriTetra/RSNA-Knee-Abnormality-Detection/tree/main/notebooks/submission)
 
 ## Rank blending
 

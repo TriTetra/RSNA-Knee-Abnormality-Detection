@@ -1,0 +1,68 @@
+site_name: RSNA Knee Abnormality Detection · knowledge base
+site_description: What we built, measured and learned in the RSNA Knee Abnormality Detection Kaggle competition (2026)
+site_url: https://tritetra.github.io/RSNA-Knee-Abnormality-Detection/
+repo_url: https://github.com/TriTetra/RSNA-Knee-Abnormality-Detection
+repo_name: TriTetra/RSNA-Knee-Abnormality-Detection
+edit_uri: edit/main/docs/
+docs_dir: docs
+
+theme:
+  name: material
+  icon:
+    logo: material/bone
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: deep orange
+      toggle: {icon: material/weather-night, name: Dark mode}
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: deep orange
+      toggle: {icon: material/weather-sunny, name: Light mode}
+  features:
+    - navigation.instant
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - toc.follow
+
+nav:
+  - Home: README.md
+  - Lessons learned: 12_lessons_learned.md
+  - Top-5 gap analysis: 11_top5_gap_analysis.md
+  - Playbook: 09_playbook.md
+  - The competition:
+      - Competition: 01_competition.md
+      - Data and DICOM: 02_data_and_dicom.md
+      - Labels: 03_labels.md
+      - Models: 04_models.md
+      - Blending and submission: 05_blending_and_submission.md
+      - Infrastructure: 06_infrastructure.md
+  - Record:
+      - Experiment log: 07_experiment_log.md
+      - Results and winners: 08_results_and_winners.md
+      - Glossary and references: 10_glossary_and_references.md
+
+markdown_extensions:
+  - tables
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/TriTetra/RSNA-Knee-Abnormality-Detection
+    - icon: fontawesome/brands/kaggle
+      link: https://www.kaggle.com/code/kadirov0/rsna-knee-what-moved-the-leaderboard

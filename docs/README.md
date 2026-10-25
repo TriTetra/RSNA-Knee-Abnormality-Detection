@@ -8,6 +8,8 @@ what we measured, what the winners did differently and the checklist we want to 
 
 ## Start here
 
+**New here? Read [12 · Lessons learned](12_lessons_learned.md) first**: twelve lessons, each with context, numbers, what the winners did and the rule for next time.
+
 | If you want to know... | read |
 |---|---|
 | the task, the data traps and the metric in 5 minutes | [01 · Competition](01_competition.md) |
@@ -21,6 +23,7 @@ what we measured, what the winners did differently and the checklist we want to 
 | **what to do differently next time** | [09 · Playbook](09_playbook.md) |
 | terms and every source we read | [10 · Glossary and references](10_glossary_and_references.md) |
 | **exactly what the top 5 did that we did not** | [11 · Top-5 gap analysis](11_top5_gap_analysis.md) |
+| **the twelve lessons in one page** | [12 · Lessons learned](12_lessons_learned.md) |
 
 ## The story in one picture
 
@@ -48,6 +51,11 @@ flowchart LR
    See [09 · Playbook](09_playbook.md).
 3. **A blend member must be strong and different.** With error correlation ρ ≈ 0.86 a new member needs about
    0.949 public on its own to add +0.002 to a 0.958 base. See [05 · Blending](05_blending_and_submission.md).
+
+## The website
+
+This knowledge base is also published as a website: https://tritetra.github.io/RSNA-Knee-Abnormality-Detection/
+(built from `docs/` with MkDocs Material on every push, see `.github/workflows/docs.yml`).
 
 ## Regenerating the figures
 

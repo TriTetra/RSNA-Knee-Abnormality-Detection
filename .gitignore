@@ -27,3 +27,5 @@ experiments/model_out/
 build/
 *.npz
 third_party/wheels/
+site/
+.claude/

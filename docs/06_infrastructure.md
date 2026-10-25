@@ -1,6 +1,6 @@
 # 06 · Infrastructure
 
-[← index](README.md) · code: [`scripts/kaggle_push.py`](../scripts/kaggle_push.py), [`scripts/server/`](../scripts/server)
+[← index](README.md) · code: [`scripts/kaggle_push.py`](https://github.com/TriTetra/RSNA-Knee-Abnormality-Detection/blob/main/scripts/kaggle_push.py), [`scripts/server/`](https://github.com/TriTetra/RSNA-Knee-Abnormality-Detection/tree/main/scripts/server)
 
 ## Kaggle
 

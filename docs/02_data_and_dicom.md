@@ -1,7 +1,7 @@
 # 02 · Data and DICOM preprocessing
 
-[← index](README.md) · code: [`src/dicom.py`](../src/dicom.py), [`src/cache.py`](../src/cache.py) ·
-notebook: [`03_dicom_preprocessing`](../notebooks/03_dicom_preprocessing.ipynb)
+[← index](README.md) · code: [`src/dicom.py`](https://github.com/TriTetra/RSNA-Knee-Abnormality-Detection/blob/main/src/dicom.py), [`src/cache.py`](https://github.com/TriTetra/RSNA-Knee-Abnormality-Detection/blob/main/src/cache.py) ·
+notebook: [`03_dicom_preprocessing`](https://github.com/TriTetra/RSNA-Knee-Abnormality-Detection/blob/main/notebooks/03_dicom_preprocessing.ipynb)
 
 Our first submission scored **0.500**. Not because the model was bad, but because the pipeline failed silently.
 Four traps in this data set raise no error and quietly destroy a model.
@@ -59,12 +59,12 @@ of `ImageOrientationPatient`; its dominant axis tells the plane (x → sagittal,
 | span | central 80% | 0.15–0.85 (44) or 0.02–0.98 (80) |
 
 **Geometry must match between training and inference.** The public 44-slice corpus came without its exact geometry;
-notebook [09](../notebooks/raptor/09_raptor_geometry_check_kaggle.ipynb) recovered it by re-processing training studies
+notebook [09](https://github.com/TriTetra/RSNA-Knee-Abnormality-Detection/blob/main/notebooks/raptor/09_raptor_geometry_check_kaggle.ipynb) recovered it by re-processing training studies
 with candidate settings and comparing pixels (span 0.15–0.85 + 140 mm → correlation 1.000; the inference default
-0.06–0.94 gave only 0.754). Notebook [17](../notebooks/raptor/17_inference_gold_check_kaggle.ipynb) later confirmed that
+0.06–0.94 gave only 0.754). Notebook [17](https://github.com/TriTetra/RSNA-Knee-Abnormality-Detection/blob/main/notebooks/raptor/17_inference_gold_check_kaggle.ipynb) later confirmed that
 our inference pipeline reproduces the training-time gold AUC (0.9227 vs 0.9205).
 
 ## Reusable snippet
 
 The self-contained version (geometric order + knee side) is in the public summary notebook,
-[`18_competition_summary_kaggle`](../notebooks/18_competition_summary_kaggle.ipynb), section 3.
+[`18_competition_summary_kaggle`](https://github.com/TriTetra/RSNA-Knee-Abnormality-Detection/blob/main/notebooks/18_competition_summary_kaggle.ipynb), section 3.

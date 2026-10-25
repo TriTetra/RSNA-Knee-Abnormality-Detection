@@ -1,6 +1,6 @@
 # 04 · Models
 
-[← index](README.md) · code: [`src/model.py`](../src/model.py), [`third_party/raptor/train_knee.py`](../third_party/raptor/train_knee.py)
+[← index](README.md) · code: [`src/model.py`](https://github.com/TriTetra/RSNA-Knee-Abnormality-Detection/blob/main/src/model.py), [`third_party/raptor/train_knee.py`](https://github.com/TriTetra/RSNA-Knee-Abnormality-Detection/blob/main/third_party/raptor/train_knee.py)
 
 ## Two model families we trained
 

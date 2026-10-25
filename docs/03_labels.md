@@ -1,7 +1,7 @@
 # 03 · Labels
 
-[← index](README.md) · code: [`src/labels.py`](../src/labels.py), [`scripts/llm_label.py`](../scripts/llm_label.py),
-[`scripts/build_labels_v4.py`](../scripts/build_labels_v4.py) · notebook: [`02_labels`](../notebooks/02_labels.ipynb)
+[← index](README.md) · code: [`src/labels.py`](https://github.com/TriTetra/RSNA-Knee-Abnormality-Detection/blob/main/src/labels.py), [`scripts/llm_label.py`](https://github.com/TriTetra/RSNA-Knee-Abnormality-Detection/blob/main/scripts/llm_label.py),
+[`scripts/build_labels_v4.py`](https://github.com/TriTetra/RSNA-Knee-Abnormality-Detection/blob/main/scripts/build_labels_v4.py) · notebook: [`02_labels`](https://github.com/TriTetra/RSNA-Knee-Abnormality-Detection/blob/main/notebooks/02_labels.ipynb)
 
 ## Why labels were the bottleneck
 
