@@ -169,6 +169,8 @@ KERNELS = {
                 kernels=["goodpjw2008/rsna-knee-coatnet-r6-2-5d-mil-lb-0-958"],
                 datasets=['goodpjw2008/rsna-knee-2-5d-convnext-reader', 'heliosli/rsna-knee-r6-frozen-fe055406-w1',
                           'nartaa/rsna-knee-publication-swa-weights-20261007', 'heliosli/rsna-orthofoundation-fold0-epoch7-20261004']),
+    "18": dict(file="18_competition_summary_kaggle.ipynb", slug="rsna-knee-what-moved-the-leaderboard", gpu=False,
+               internet=False, kernels=[], datasets=[], no_src=True),
     "08": dict(file="08_llm_etiketleme_kaggle.ipynb", slug="rsna-knee-08-llm-labels", gpu=True,
                internet=True, kernels=[]),
 }
@@ -197,7 +199,7 @@ def push_kernel(key: str):
         "id": f"{u}/{k['slug']}", "title": k["slug"], "code_file": k["file"],
         "language": "python", "kernel_type": "notebook", "is_private": True,
         "enable_gpu": k["gpu"], "enable_internet": k["internet"],
-        "dataset_sources": [f"{SRC_OWNER}/rsna-knee-src"] + k.get("datasets", []),
+        "dataset_sources": ([] if k.get("no_src") else [f"{SRC_OWNER}/rsna-knee-src"]) + k.get("datasets", []),
         "competition_sources": [COMPETITION],
         # "sahip/slug" biçimindeki kaynaklar olduğu gibi, diğerleri SOURCE_OWNER'dan
         "kernel_sources": [s if "/" in s else f"{SOURCE_OWNER}/{s}" for s in k["kernels"]],
